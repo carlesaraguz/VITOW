@@ -84,6 +84,22 @@ And in order to display the video that is being received:
 $ tail -F  testing | mplayer -fps 30 -framedrop -demuxer h264es -
 ```
 
+## How to Broadcast to Youtube
+
+The stream that is being received may be uploaded to Youtube to create a live event, in that case, ffmpeg will be the best solution the wrap the contents of the raspicam live stream into a format that Youtube accepts without re-encoding:
+
+
+```sh
+$ sudo apt-get install ffmpeg 
+```
+
+And the command to upload the file that is being received: 
+
+```sh
+$ tail -F testing | ffmpeg -re -ar 44100 -ac 2 -acodec pcm_s16le -f s16le -ac 2 -i /dev/zero -f h264 -i - -vcodec copy -acodec aac -ab 128k -g 50 -strict experimental -f flv rtmp://a.rtmp.youtube.com/live2/urlYoutubeBroadcas
+```
+
+ 
 
 
 
