@@ -37,7 +37,7 @@
 #include <string.h>
 #include <unistd.h>
 #include <fcntl.h>
-#include <errno.h> 
+#include <errno.h>
 #include <ctype.h>
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -46,7 +46,7 @@
 #include <arpa/inet.h>
 #include <sys/time.h>	/* for gettimeofday */
 
-#include "../openfec_v1.4.2/src/lib_common/of_openfec_api.h"
+#include "of_openfec_api.h"
 
 /*
  * OS dependant definitions
@@ -83,11 +83,3 @@
  *
  * NB: all the fields MUST be in Network Endian while sent over the network, so use htonl (resp. ntohl) at the sender (resp. receiver).
  */
-typedef struct {
-	UINT32		codec_id;	/* identifies the code/codec being used. In practice, the "FEC encoding ID" that identifies the FEC Scheme should
-					 * be used instead (see [RFC5052]). In our example, we are not compliant with the RFCs anyway, so keep it simple. */
-	UINT32		k;
-	UINT32		n;
-} fec_oti_t;
-
-
