@@ -1,17 +1,16 @@
 #! /bin/bash
 
-echo "Script Running, setting Wlan1 and Wlan2 monitor 13"
-
-sudo ifconfig wlan2 down
-sudo iw dev wlan2 set monitor otherbss none
-sudo ifconfig wlan2 up
-sudo iwconfig wlan2 channel 13
-
-sudo ifconfig wlan1 down
-sudo iw dev wlan1 set monitor otherbss none
-sudo ifconfig wlan1 up
-sudo iwconfig wlan1 channel 13
-
-
-
-echo "Done"
+WHOAMI=$(whoami)
+if [ $WHOAMI == "root" ]; then
+    if [ "$#" -ne 1 ]; then
+        echo "Illegal number of parameters. Expected: ./monitor.sh <interface_name> <channel_num>"
+    else
+        echo "Setting interface '$1' in monitor mode (channel $2)"
+        sudo ifconfig $1 down
+        sudo iw dev $1 set monitor otherbss none
+        sudo ifconfig $1 up
+        sudo iwconfig $1 channel $2
+    fi
+else
+    echo "This script has to be executed by root (or with sudo)"
+fi
