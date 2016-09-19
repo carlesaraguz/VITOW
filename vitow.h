@@ -46,6 +46,9 @@
 /*** GLOBAL CONSTANTS: ****************************************************************************/
 const of_codec_id_t codec_id = OF_CODEC_LDPC_STAIRCASE_STABLE;  /* Identifier of the codec to use.*/
 
+/*** GLOBAL VARIABLES: ****************************************************************************/
+extern char wlan[100];                      /* The WiFi interface name. Filled with argv.         */
+
 /*** MACROS: **************************************************************************************/
 #if __BYTE_ORDER == __LITTLE_ENDIAN
     #define	le16_to_cpu(x) (x)

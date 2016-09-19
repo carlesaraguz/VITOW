@@ -15,8 +15,9 @@
 #include "vitow.h"
 
 /*** GLOBAL VARIABLES *****************************************************************************/
- static long previousId;
- static bool firstId = true;
+char            wlan[100];                    /* The WiFi interface name. Filled with argv.       */
+static long     previousId;
+static bool     firstId = true;
 
 /***********************************************************************************************//**
  * Receiveing thread. Launched by the main thread.
@@ -44,7 +45,6 @@ void* rx(void* parameter)
     char            szErrbuf[PCAP_ERRBUF_SIZE];
     int             n80211HeaderLength = 0, nLinkEncap = 0;
     int             retval, bytes;
-    const char      wlan[] = "wlan2";
     pcap_t *        ppcap = NULL;
     struct bpf_program bpfprogram;
     char            szProgram[50];
@@ -415,12 +415,22 @@ int main(int argc, char *argv[])
     pthread_t threadHandler;
     void *retval;
 
+    if(argc == 2)
+    {
+        sprintf(wlan, "%s", argv[1]);
+        printf("VITOW will use interface '%s'\n", wlan);
+    } else {
+        printf("Wrong number of arguments. WiFi interface name expected.\n");
+        printf("VITOW RX will exit now\n");
+        return -1;
+    }
+
     while(1) {
         pthread_create(&threadHandler, NULL, rx, NULL);
         pthread_join(threadHandler, &retval);
         if((int)(intptr_t)retval != 0) {
             printf("Errors found in RX thread. Exiting\n");
-            return -1;
+            break;
         }
     }
 

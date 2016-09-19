@@ -16,6 +16,7 @@
 
 
 /*** GLOBAL VARIABLES *****************************************************************************/
+char            wlan[100];                    /* The WiFi interface name. Filled with argv.       */
 static  int     id              = 5;
 static  char    buffer1[BUFFER_SIZE + 1];
 static  char    buffer2[BUFFER_SIZE + 1];
@@ -65,7 +66,6 @@ void* transmittingThread(void* args)
     unsigned int    *imagebuffer;
     pcap_t          *ppcap = NULL;
     int             r;
-    const char      wlan[] = "wlan2";
     char            szErrbuf[PCAP_ERRBUF_SIZE];
     unsigned char * ptr_buff;                       /* Pointer to the sending buffer.             */
     unsigned char   u8aSendBuffer[4096];
@@ -382,8 +382,18 @@ void* bufferingThread(void* args)
  **************************************************************************************************/
 int main(int argc,char* argv[])
 {
-    srand(time(NULL));
     pthread_t bufferThreadHandler;
+
+    if(argc == 2)
+    {
+        sprintf(wlan, "%s", argv[1]);
+        printf("VITOW will use interface '%s'\n", wlan);
+    } else {
+        printf("Wrong number of arguments. WiFi interface name expected.\n");
+        printf("VITOW TX will exit now\n");
+        return -1;
+    }
+    srand(time(NULL));
     pthread_create(&bufferThreadHandler, 0, bufferingThread, NULL);
     pthread_join(bufferThreadHandler, NULL);
 
