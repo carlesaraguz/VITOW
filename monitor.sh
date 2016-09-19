@@ -2,7 +2,7 @@
 
 WHOAMI=$(whoami)
 if [ $WHOAMI == "root" ]; then
-    if [ "$#" -ne 1 ]; then
+    if [ "$#" -ne 2 ]; then
         echo "Illegal number of parameters. Expected: ./monitor.sh <interface_name> <channel_num>"
     else
         echo "Setting interface '$1' in monitor mode (channel $2)"
