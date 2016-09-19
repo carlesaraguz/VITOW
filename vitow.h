@@ -11,26 +11,47 @@
  *  \note       Fork by Carles Araguz - carles.araguz@upc.edu.
  **************************************************************************************************/
 
-// TX:
+#ifndef __VITOW_H_
+#define __VITOW_H_
+
+/*** INCLUDES *************************************************************************************/
 #include <stdio.h>
 #include <stdlib.h>
-# include <pthread.h>
-#include "wifibroadcast.h"
-#include "simple_client_server.h"
+#include <stdint.h>
+#include <pthread.h>
+#include <math.h>
 #include <time.h>
+#include <errno.h>
+#include <resolv.h>
+#include <string.h>
+#include <utime.h>
+#include <unistd.h>
+#include <getopt.h>
+#include <pcap.h>
+#include <endian.h>
 
-// RX:
-# include <stdio.h>
-# include <pthread.h>
-#include "wifibroadcast.h"
+#include "of_openfec_api.h"
 #include "radiotap.h"
-#include <stdio.h>
-#include <stdlib.h>
-#include <time.h>
-#include "simple_client_server.h"
 
-#define bufferSize 1024*1000
 
+/*** PARAMETERS ***********************************************************************************/
+#define VERBOSITY       2                   /* Verb. level: 2 = full traces with packet dumps.    */
+#define SYMBOL_SIZE     1084                /* Must be multiple of 4.                             */
+#define BUFFER_ELEMS    1000                /* Elements in the buffer.                            */
+#define BUFFER_SIZE     (SYMBOL_SIZE * BUFFER_ELEMS)    /* Round-Robin buffers size.              */
+#define SYMBOL_SIZE_32  (SYMBOL_SIZE / 4)   /* Used when pointers to buffer are (int *).          */
+#define OVERHEAD        0.05                /* Protocol overhead.                                 */
+#define OUTPUT_FILENAME "vitow_output"      /* Filename at RX with the received data.             */
+
+/*** GLOBAL CONSTANTS: ****************************************************************************/
+const of_codec_id_t codec_id = OF_CODEC_LDPC_STAIRCASE_STABLE;  /* Identifier of the codec to use.*/
+
+/*** MACROS: **************************************************************************************/
+#if __BYTE_ORDER == __LITTLE_ENDIAN
+    #define	le16_to_cpu(x) (x)
+#else
+    #define	le16_to_cpu(x) ((((x) & 0xff) << 8) | (((x) & 0xff00) >> 8))
+#endif
 
 /*** TYPEDEFS *************************************************************************************/
 /* This is where we store a summary of the information from the radiotap header:                  */
@@ -52,3 +73,11 @@ typedef struct fec_oti_t {
     unsigned int k;
     unsigned int n;
 } fec_oti_t;
+
+/*** FUNCTION HEADERS *****************************************************************************/
+void randomize_array(unsigned int **array, unsigned int arrayLen);
+void* bufferingThread(void* args);
+void* transmittingThread(void* args);
+
+
+#endif

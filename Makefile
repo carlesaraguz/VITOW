@@ -1,22 +1,22 @@
 
 OBJDIR := obj
-ROBJS  := $(addprefix $(OBJDIR)/,RX.o radiotap.o)
-TOBJS  := $(addprefix $(OBJDIR)/,TX.o radiotap.o)
+ROBJS  := $(addprefix $(OBJDIR)/,vitow_rx.o radiotap.o)
+TOBJS  := $(addprefix $(OBJDIR)/,vitow_tx.o)
 
-CFLAGS  = -I../openfec_v1.4.2/src/lib_common -w
+CFLAGS  = -I../openfec_v1.4.2/src/lib_common -Wall
 LDFLAGS = -lopenfec -lm -lpcap -lpthread
 
-all: RX TX
+all: vitow_rx vitow_tx
 
 $(OBJDIR)/%.o : %.c
 	@echo -n -e '---------: COMPILING $< -> $@ : '
 	@gcc -c $< -o $@ $(CFLAGS) && echo 'done.'
 
-TX: $(TOBJS) | $(OBJDIR)
+vitow_tx: $(TOBJS) | $(OBJDIR)
 	@echo -n -e '---------: LINKING $< -> $@ : '
 	@gcc $(TOBJS) -o $@ $(LDFLAGS) && echo 'done.'
 
-RX: $(ROBJS) | $(OBJDIR)
+vitow_rx: $(ROBJS) | $(OBJDIR)
 	@echo -n -e '---------: LINKING $< -> $@ : '
 	@gcc $(ROBJS) -o $@ $(LDFLAGS) && echo 'done.'
 
