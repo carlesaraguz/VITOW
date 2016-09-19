@@ -28,8 +28,8 @@ obj/
 *.i*86
 *.x86_64
 *.hex
-RX
-TX
+vitow_rx
+vitow_tx
 
 # Debug files
 *.dSYM/
