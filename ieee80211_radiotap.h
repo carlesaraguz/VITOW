@@ -40,6 +40,12 @@
 
 #include <linux/if_ether.h>
 #include <linux/kernel.h>
+#include <linux/types.h>
+
+typedef unsigned int u32;
+// typedef unsigned short u16;
+typedef unsigned char u8;
+// typedef u32 __le32;
 
 /* Radiotap header version (from official NetBSD feed) */
 #define IEEE80211RADIOTAP_VERSION	"1.5"
