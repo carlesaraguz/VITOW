@@ -43,6 +43,11 @@
 #define OVERHEAD        0.05                /* Protocol overhead.                                 */
 #define OUTPUT_FILENAME "vitow_output"      /* Filename at RX with the received data.             */
 
+
+#define DBG_RED     "\x1b[31;1m"
+#define DBG_GREEN   "\x1b[32;1m"
+#define DBG_NOCOLOR "\x1b[0m"
+
 /*** GLOBAL CONSTANTS: ****************************************************************************/
 const of_codec_id_t codec_id = OF_CODEC_LDPC_STAIRCASE_STABLE;  /* Identifier of the codec to use.*/
 

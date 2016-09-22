@@ -15,16 +15,16 @@
 #include "vitow.h"
 
 /*** GLOBAL VARIABLES *****************************************************************************/
-char            wlan[100];                    /* The WiFi interface name. Filled with argv.       */
-static long     previousId;
-static bool     firstId = true;
+char                wlan[100];              /* The WiFi interface name. Filled with argv.         */
+static unsigned int previousId;
+static bool         firstId = true;
 
 /***********************************************************************************************//**
  * Receiveing thread. Launched by the main thread.
  **************************************************************************************************/
 void* rx(void* parameter)
 {
-    of_session_t *  ses;                    /* OpenFEC codec instance identifier.                 */
+    of_session_t *  ses = NULL;             /* OpenFEC codec instance identifier.                 */
     of_ldpc_parameters_t *params = NULL;    /* OpenFEC session parameters.                        */
     void **         recvd_symbols_tab = NULL;   /* Received symbols (no FPI here). The allocated
                                                  * buffer start 4 bytes (i.e., sizeof(FPI))
@@ -55,7 +55,7 @@ void* rx(void* parameter)
     bool            first = true;
     void *          pkt    = NULL;
     int             N1parameter = 7;
-    int             imagefilelen;
+    unsigned int    imagefilelen;
     int             writtenBytes = 0;
     int             bytes_to_write = SYMBOL_SIZE;
 
@@ -153,7 +153,7 @@ void* rx(void* parameter)
         }
 
         /* The symbols size will be the total payload minus headers minus ID fields. We have 3 ID
-         * symbols of 4 bytes. Moreover, we have to take into account hte FCS of 4 Bytes at the end.
+         * symbols of 4 bytes. Moreover, we have to take into account the FCS of 4 Bytes at the end.
          * In that case divided by 4 because is expressed in (unsigned int).
          * SYMBOL_SIZE_32 = ((bytes - 4) - (4 + 4 + 4)) / 4
          */
@@ -192,8 +192,6 @@ void* rx(void* parameter)
         if(prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS) {
             bytes -= 4;
         }
-        printf("Total bytes: %d \n", bytes);
-
 
         /* Here I have the pointer pu8Payload pointing to the payload. We can apply
          * LPDC-Staircase now. First of all, let's obtain the ID parameters (ESI,n,k). They are on
@@ -205,30 +203,36 @@ void* rx(void* parameter)
          */
         memcpy(&esi, pu8Payload, sizeof(unsigned int));
         esi = ntohl(esi);
-        pu8Payload += 4;
+        pu8Payload += sizeof(unsigned int);
 
         memcpy(&n, pu8Payload, sizeof(unsigned int));
         n = ntohl(n);
-        pu8Payload += 4;
+        pu8Payload += sizeof(unsigned int);
 
         memcpy(&k, pu8Payload, sizeof(unsigned int));
         k = ntohl(k);
-        pu8Payload += 4;
+        pu8Payload += sizeof(unsigned int);
 
         memcpy(&id, pu8Payload, sizeof(unsigned int));
         id = ntohl(id);
-        pu8Payload += 4;
+        pu8Payload += sizeof(unsigned int);
 
-        printf("ESI = %d, n = %d, k = %d, id = %d\n", esi, n, k, id);
+        // printf("ESI = %d, n = %d, k = %d, id = %d\n", esi, n, k, id);
 
         if(firstId) {
             firstId = false;
             previousId = id;
         } else {
             if(id != previousId) {
-                printf("ID is equal to the previous ID. Exiting\n");
-                ret = -1;
-                goto end;
+                if(id == (previousId-1)) {
+                    /* Ignore the error: (debug purposes). */
+                    printf("ID (%u) is different to the previous ID (%u), but it will be ignored.\n", id, previousId);
+                    id = previousId;
+                } else {
+                    printf("ID (%u) is different to the previous ID (%u). Exiting without errors\n", id, previousId);
+                    ret = 0;
+                    goto end;
+                }
             }
         }
 
@@ -241,9 +245,11 @@ void* rx(void* parameter)
                 ret = -1;
                 goto end;
             }
-            params->prng_seed = rand();
+            /* LDPC-specific parameters (of_ldpc_parameters_t): */
+            params->prng_seed = 1804289383;//rand();
             params->N1        = N1parameter;
-            params->nb_source_symbols = k;        /* fill in the generic part of the of_parameters_t structure */
+            /* Generic parameters: (of_parameters_t): */
+            params->nb_source_symbols = k;
             params->nb_repair_symbols = n - k;
             params->encoding_symbol_length = SYMBOL_SIZE;
 
@@ -291,17 +297,26 @@ void* rx(void* parameter)
         }
         memcpy(pkt, u8aSymbol, SYMBOL_SIZE);
         recvd_symbols_tab[esi] = (char *)pkt;
-        printf("Symbol %05d: esi=%u (%s)\n", n_received, esi, (esi < k) ? "src" : "repair");
+
+        if(!(n_received % 100)) {
+            printf("FCS:%s HdrLen:%02d, Len:%04d, ", ((prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS) ? "yes," : "no, "), (u16HeaderLen + n80211HeaderLength), bytes);
+            printf("Symbol %5d (%s), ESI:%04u, N:%04u, K:%04u, ID:%u\n", n_received, ((esi < k) ? "source" : "repair"), esi, n, k, id);
+        }
+
         if(of_decode_with_new_symbol(ses, (char*)pkt, esi) == OF_STATUS_ERROR) {
-            printf("Unable to decode symbol %d\n", n_received);
+            printf("Unable to decode symbol %d, ESI=%d\n", n_received, esi);
             ret = -1;
             goto end;
         }
 
         if((double)n_received > (double)(k * (1.0 + OVERHEAD))) {
+            printf("Received packets (%d) > Overhead (%.3f)\n", n_received, (double)(k * (1.0 + OVERHEAD)) );
             break;
         }
     } /* while(...) exit: broken socket or 5% overhead. */
+    if(fBrokenSocket) {
+        printf("ERROR: broken socket\n");
+    }
 
     if(!done && (n_received >= k)) {
         /* There are no more packets but we received at least k, and the use of
@@ -311,16 +326,22 @@ void* rx(void* parameter)
          * of_finish_decoding performs ML decoding
          */
         ret = of_finish_decoding(ses);
-        if (ret == OF_STATUS_ERROR || ret == OF_STATUS_FATAL_ERROR) {
-            printf("ML decoding failed\n");
+        printf("of_finish_decoding = %d, error = %d\n", ret, (ret == OF_STATUS_ERROR || ret == OF_STATUS_FATAL_ERROR));
+        if(ret == OF_STATUS_ERROR || ret == OF_STATUS_FATAL_ERROR) {
+            printf("ERROR: ML decoding failed\n");
             ret = -1;
             goto end;
         } else if (ret == OF_STATUS_OK) {
+            printf("ML decoding successful\n");
             done = true;
+        } else {
+            printf("ERROR: ML decoding returned and unexpected value (%d)\n", ret);
+            ret = -1;
+            goto end;
         }
     }
 
-    if (done) {
+    if(done) {
         /* Finally, get a copy of the pointers to all the source symbols, those received (that we
          * already know) and those decoded. In case of received symbols, the library does not change
          * the pointers (same value).
@@ -331,8 +352,8 @@ void* rx(void* parameter)
             goto end;
         }
 
-        printf("Done! All source symbols rebuilt after receiving %u packets\n", n_received);
-        printf("-- Overhead: %.2f %% \n", (((float) n_received) / k) * 100 - 100);
+        printf(DBG_GREEN"Done! All source symbols rebuilt after receiving %u packets\n", n_received);
+        printf("-- Overhead: %.2f %% \n"DBG_NOCOLOR, (((float) n_received) / k) * 100 - 100);
 
 
         if((write_ptr = fopen(OUTPUT_FILENAME, "ab")) == NULL) {
@@ -341,7 +362,7 @@ void* rx(void* parameter)
             goto end;
         }
         memcpy(&imagefilelen, src_symbols_tab[0], 4); /* Copies length value. */
-        printf("Dumping packet into the file system. Lenght: %d\n", imagefilelen);
+        printf("Dumping packet into the file system. Length: %u\n", imagefilelen);
         /* The first write is special, so let's take it into account */
         fwrite(src_symbols_tab[0] + 4, 1, SYMBOL_SIZE - 4, write_ptr);
         writtenBytes = SYMBOL_SIZE - 4;
@@ -360,11 +381,18 @@ void* rx(void* parameter)
 
 end:
     /* Clean-up everything... */
+    previousId = id;
+    first = true;
+    n_received = 0;
+
     if(ses) {
         of_release_codec_instance(ses);
+        // free(ses);
+        ses = NULL;
     }
     if(params) {
         free(params);
+        params = NULL;
     }
 
     if(recvd_symbols_tab && src_symbols_tab) {
@@ -381,13 +409,9 @@ end:
         free(src_symbols_tab);
     }
 
-    previousId = id;
-    first = true;
-    n_received = 0;
-
     pcap_close(ppcap);
 
-    return (void *)-1;
+    return (void *)(intptr_t)ret;
 }
 
 
@@ -415,6 +439,7 @@ int main(int argc, char *argv[])
     pthread_t threadHandler;
     void *retval;
 
+    /* Setup wireless interface: */
     if(argc == 2)
     {
         sprintf(wlan, "%s", argv[1]);
@@ -425,11 +450,16 @@ int main(int argc, char *argv[])
         return -1;
     }
 
+    /* Truncate previous output file: */
+    if(truncate(OUTPUT_FILENAME, 0) < 0) {
+        perror("Unable to truncate the output file `"OUTPUT_FILENAME"`\n");
+    }
+
     while(1) {
         pthread_create(&threadHandler, NULL, rx, NULL);
         pthread_join(threadHandler, &retval);
         if((int)(intptr_t)retval != 0) {
-            printf("Errors found in RX thread. Exiting\n");
+            printf(DBG_RED"Errors found in RX thread. Exiting\n"DBG_NOCOLOR);
             break;
         }
     }

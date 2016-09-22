@@ -384,6 +384,7 @@ int main(int argc,char* argv[])
 {
     pthread_t bufferThreadHandler;
 
+    /* Setup wireless interface: */
     if(argc == 2)
     {
         sprintf(wlan, "%s", argv[1]);
@@ -393,6 +394,7 @@ int main(int argc,char* argv[])
         printf("VITOW TX will exit now\n");
         return -1;
     }
+
     srand(time(NULL));
     pthread_create(&bufferThreadHandler, 0, bufferingThread, NULL);
     pthread_join(bufferThreadHandler, NULL);
