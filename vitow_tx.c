@@ -17,7 +17,7 @@
 
 /*** GLOBAL VARIABLES *****************************************************************************/
 char            wlan[100];                    /* The WiFi interface name. Filled with argv.       */
-static  int     id              = 5;
+static  int     id              = 0;
 static  char    buffer1[BUFFER_SIZE + 1];
 static  char    buffer2[BUFFER_SIZE + 1];
 
@@ -39,6 +39,9 @@ static const unsigned char u8aIeeeHeader[] = { /* Penumbra IEEE80211 header     
     0x10, 0x86                          /* Sequence control [2B]                                  */
                                         /* Address 4 left blank [6B]                              */
 };
+
+/*** STATIC GLOBAL FUNCTION HEADERS ***************************************************************/
+static double time_step_delta(struct timeval * t);
 
 /**************************************************************************************************/
 
@@ -69,13 +72,16 @@ void* transmittingThread(void* args)
     char            szErrbuf[PCAP_ERRBUF_SIZE];
     unsigned char * ptr_buff;                       /* Pointer to the sending buffer.             */
     unsigned char   u8aSendBuffer[4096];
-    struct timeval  begin, end;                     /* Used to cound elapsed time.                */
-    double          elapsed;                        /* Elapsed time during packet injection.      */
     unsigned int    ESIsend, Nsend, Ksend, IDsend;  /* Transmission fields.                       */
     int *           buffer_id = args;
+    struct timeval  time_value;
+    double          time_elapsed;
+    double          throughput_abs;
+    double          throughput_net;
 
-    id = id + 1;
-    printf("Transmitting thread started (ID: %d)\n", id);
+    gettimeofday(&time_value, NULL); /* Initializes current time for delay counting purposes. */
+
+    id++; /* Increments the buffer ID. */
 
     /* Allocates space for the buffer, plus an integer at the begining. */
     imagebuffer = (unsigned int *)malloc(BUFFER_SIZE + sizeof(*imagebuffer));
@@ -96,9 +102,8 @@ void* transmittingThread(void* args)
     /* The total number of symbols will be the number of source symbols divided by the rate. */
     n = (unsigned int)floor((double)k / (double)rate);
 
-    printf("Initializing an LDPC-Staircase codec instance with (n, k)=(%u, %u)\n", n, k);
     if((params = (of_ldpc_parameters_t *)calloc(1, sizeof(*params))) == NULL) {
-        perror("Unable to allocate memory for LDPC parameters");
+        printfe("Unable to allocate memory for LDPC parameters\n");
         ret = -1;
         goto end;
     }
@@ -106,8 +111,6 @@ void* transmittingThread(void* args)
     /* It needs a pseudo random number generator, we provide that to it. */
     // params->prng_seed = rand();
     params->prng_seed = 1804289383;
-    printf("Random number is: %d \n", params->prng_seed );
-
     /* Number of 1's. The more 1's, the more complex and efficient the decoding will be. */
     params->N1 = 7;
     /* Let's put the number of source and repair symbols here. Fill in the generic part of the
@@ -119,11 +122,10 @@ void* transmittingThread(void* args)
 
     /* Open and initialize the OpenFEC session now. of_create_codec_instance creates the instance */
     if((ret = of_create_codec_instance(&ses, codec_id, OF_ENCODER, VERBOSITY)) != OF_STATUS_OK) {
-        printf("OpenFEC session could not be initiated. Status: %d\n", ret);
+        printfe("OpenFEC session could not be initiated. Status: %d\n", ret);
         ret = -1;
         goto end;
     }
-    printf("OpenFEC instance created\n");
 
     /*  And then the parameters are passed. Note that a cast to `of_parameters_t` is performed here
      *  because the generic function of_set_fec_parameters expect this type of structure. Inside
@@ -132,21 +134,19 @@ void* transmittingThread(void* args)
      *  compiled with OF_USE_LDPC_STAIRCASE_CODEC, which we assume is done by default.
      */
     if((ret = of_set_fec_parameters(ses, (of_parameters_t *)params)) != OF_STATUS_OK) {
-        printf("OpenFEC parameters could not be set. Status: %d\n", ret);
+        printfe("OpenFEC parameters could not be set. Status: %d\n", ret);
         ret = -1;
         goto end;
     }
 
-    /* Now the codec has been initialized and is ready to use. */
-    printf("OpenFEC codec is ready\n");
-
-    /* Allocate and initialize our source symbols:
+    /* Now the codec has been initialized and is ready to use.
+     * Allocate and initialize our source symbols:
      *  In case of a file transmission, the opposite takes place: the file is read and partitioned
      *  into a set of k source symbols. In fact, it's just equivalent since there is a set of k
      *  source symbols that need to be sent reliably thanks to a FEC encoding.
      */
     if((enc_symbols_tab = (void **)calloc(n, sizeof(*enc_symbols_tab))) == NULL) {
-        perror("Unable to allocate memory for the source symbols");
+        printfe("Unable to allocate memory for the source symbols\n");
         ret = -1;
         goto end;
     }
@@ -157,6 +157,9 @@ void* transmittingThread(void* args)
      *  i.e. it prevents the detection of symbol corruption.
      */
 
+    printfd("[TX (%05d)       ] [%.2f ms] Codec instance ready and parameters set: (N = %d; K = %d)\n",
+        id, time_step_delta(&time_value), n, k);
+
     /* For each one of the K symbols (source symbols): */
     for(esi = 0; esi < k; esi++) {
         /* In each point of the table allocate the size of the source symbol. calloc sets the
@@ -165,7 +168,7 @@ void* transmittingThread(void* args)
          * (sizeof(unsigned int) are allocated = 1024 Bytes.
          */
         if((enc_symbols_tab[esi] = calloc(SYMBOL_SIZE_32, sizeof(unsigned int))) == NULL) {
-            perror("Unable to allocate memory for the k-th source symbol");
+            printfe("Unable to allocate memory for the k-th source symbol\n");
             ret = -1;
             goto end;
         }
@@ -173,35 +176,39 @@ void* transmittingThread(void* args)
         // memset(enc_symbols_tab[esi], (char)(esi + 1), SYMBOL_SIZE);
         memcpy(enc_symbols_tab[esi], imagebuffer + (esi * SYMBOL_SIZE_32), SYMBOL_SIZE);
     }
+    printfd("[TX (%05d)       ] [%.2f ms] Symbols dumped from Buffer #%d to encoding table\n", id,
+        time_step_delta(&time_value), *buffer_id);
 
     /* Build the repair symbols: */
     for(esi = k; esi < n; esi++) {
         if((enc_symbols_tab[esi] = (char *)calloc(SYMBOL_SIZE_32, sizeof(unsigned int))) == NULL) {
-            perror("Unable to allocate memory for the k-th repair symbol");
+            printfe("Unable to allocate memory for the k-th repair symbol\n");
             ret = -1;
             goto end;
         }
         if(of_build_repair_symbol(ses, enc_symbols_tab, esi) != OF_STATUS_OK) {
-            printf("Could not build repair symbol %d\n", esi);
+            printfe("Could not build repair symbol %d\n", esi);
             ret = -1;
             goto end;
         }
     }
 
+
     /* Randomizing transmission order: */
     if((rand_order = (unsigned int*)calloc(n, sizeof(*rand_order))) == NULL) {
-        perror("Unable to allocate memory for the randomized array");
+        printfe("Unable to allocate memory for the randomized array\n");
         ret = -1;
         goto end;
     }
     randomize_array(&rand_order, n);
+    printfd("[TX (%05d)       ] [%.2f ms] Repair symbols built; Randomization completed.\n", id, time_step_delta(&time_value));
 
     /* Source and Repair symbols have been created. Let's send all the data now! */
     szErrbuf[0] = '\0';
     /* Open pcap setup: interface, snap length, 1=promiscuous, ms, and error buffer. */
     ppcap = pcap_open_live(wlan, 2048, 1, 20, szErrbuf);
     if(ppcap == NULL) {
-        printf("Unable to open interface %s in pcap: %s\n", wlan, szErrbuf);
+        printfe("Unable to open interface %s in pcap: %s\n", wlan, szErrbuf);
         ret = -1;
         goto end;
     }
@@ -210,7 +217,10 @@ void* transmittingThread(void* args)
      * int non-block and error buffer in case of error.
      */
     pcap_setnonblock(ppcap, 0, szErrbuf);
-    gettimeofday(&begin, NULL);     /* Record the start time. */
+
+    gettimeofday(&time_value, NULL);     /* Record the start time. */
+    printfd("[TX (%05d) start ] Sending %d symbols. Symbol size: %d bytes\n", id, n, SYMBOL_SIZE);
+
 
     for (esi = 0; esi < n; esi++) {
         /* --- HEADERS: ------------------------------------------------------------------------- */
@@ -245,12 +255,20 @@ void* transmittingThread(void* args)
             printf("Problems during packet (%d) injection\n", esi);
             ret = -1;
             goto end;
+        } else if(esi % 11 == 0) {
+            printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\r", id, (double)esi/(double)n,
+                esi, ESIsend, ((ESIsend < k) ? "source" : "repair"));
         }
     }
-    gettimeofday(&end, NULL);
-    elapsed = (end.tv_sec - begin.tv_sec) + ((end.tv_usec - begin.tv_usec) / 1000000.0);
-    printf("Data sent in: %.2f seconds\n", elapsed);
-    printf("Net Throughput: %.2f bps\n", ((float)(esi * SYMBOL_SIZE * 8)) / elapsed);
+    printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\n", id, (double)esi/(double)n,
+        esi, ESIsend, ((ESIsend < k) ? "source" : "repair"));
+
+    time_elapsed = time_step_delta(&time_value);
+    throughput_abs = ((sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE) * n * 8.0) / time_elapsed;
+    throughput_net = (SYMBOL_SIZE * n * 8.0) / time_elapsed;
+
+    printfo("[TX (%05d) done  ] [%.2f ms] Transmission completed. Throughput = [%.2f | %.2f] bps\n", id,
+        time_elapsed, throughput_abs, throughput_net);
 
 end:
     /* Cleanup everything: */
@@ -276,7 +294,6 @@ end:
         free(enc_symbols_tab);
     }
 
-    printf("Closing ppcap and releasing buffers\n");
     pcap_close(ppcap);
     free(imagebuffer);
 
@@ -287,12 +304,22 @@ end:
     }
 
     if(ret != 0) {
-        printf("Transmitting thread finished with errors\n");
+        printfe("Transmitting thread finished with errors\n");
     }
     return (void *)(intptr_t)ret;
 }
 
-
+/***********************************************************************************************//**
+ * Calculates the delay between a past event and now.
+ **************************************************************************************************/
+static double time_step_delta(struct timeval * t)
+{
+    struct timeval t0;
+    t0.tv_sec = t->tv_sec;
+    t0.tv_usec = t->tv_usec;
+    gettimeofday(t, NULL);
+    return ((1000000 * t0.tv_sec + t0.tv_usec) / 1000.0) - ((1000000 * t->tv_sec + t->tv_usec) / 1000.0);
+}
 
 /***********************************************************************************************//**
  * Randomize an array of integers.
@@ -356,12 +383,13 @@ void* bufferingThread(void* args)
         if(started) {
             pthread_join(tx_thread_2, &retval);     /* Wait until thread 2 finishes. */
             if((int)(intptr_t)retval != 0) {
-                printf("Errors found in TX thread (2). Exiting\n");
+                printfe("[BUFFERING        ] Errors found in TX thread (2). Restarting all threads.\n");
                 return (void *)-1;
             }
         } else {
             started = true;
         }
+        printfd("[BUFFERING        ] Buffer 1 full and ready to be sent\n");
         buffer_id = 1;
         pthread_create(&tx_thread_1, 0, transmittingThread, &buffer_id); /* Thread 1 is launched. */
 
@@ -371,13 +399,14 @@ void* bufferingThread(void* args)
 
         pthread_join(tx_thread_1, &retval);     /* Wait until thread 1 finishes. */
         if((int)(intptr_t)retval != 0) {
-            printf("Errors found in TX thread (1). Exiting\n");
+            printfe("[BUFFERING        ] Errors found in TX thread (1). Restarting all threads.\n");
             return (void *)-1;
         }
         buffer_id = 2;
+        printfd("[BUFFERING        ] Buffer 2 full and ready to be sent\n");
         pthread_create(&tx_thread_2, 0, transmittingThread, &buffer_id); /* Thread 2 is launched. */
     }
-    printf("Error: buffering thread exit\n");
+    printfe("Error: buffering thread exit\n");
 
     return (void *)-1;
 }

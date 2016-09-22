@@ -317,7 +317,6 @@ void* rx(void* parameter)
             printfd("[RX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\r", id,
                 (100.0 * (double)n_received / (double)(k * OVERHEAD)),
                 n_received, esi, ((esi < k) ? "source" : "repair"));
-            // printfd("Symbol %5d (%s), ESI:%04u, N:%04u, K:%04u, ID:%u\n", n_received, ((esi < k) ? "source" : "repair"), esi, n, k, id);
         }
 
         if(of_decode_with_new_symbol(ses, (char*)pkt, esi) == OF_STATUS_ERROR) {
