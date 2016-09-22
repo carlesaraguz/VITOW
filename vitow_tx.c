@@ -252,7 +252,7 @@ void* transmittingThread(void* args)
             sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE);
 
         if(r != (sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE)) {
-            printf("Problems during packet (%d) injection\n", esi);
+            printfe("Problems during packet (%d) injection\n", esi);
             ret = -1;
             goto end;
         } else if(esi % 11 == 0) {
@@ -267,8 +267,8 @@ void* transmittingThread(void* args)
     throughput_abs = ((sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE) * n * 8.0) / time_elapsed;
     throughput_net = (SYMBOL_SIZE * n * 8.0) / time_elapsed;
 
-    printfo("[TX (%05d) done  ] [%.2f ms] Transmission completed. Throughput = [%.2f | %.2f] bps\n", id,
-        time_elapsed, throughput_abs, throughput_net);
+    printfo("[TX (%05d) done  ] [%.2f ms] Transmission completed. Throughput = [%.2f | %.2f] kbps\n", id,
+        time_elapsed, throughput_abs / 1000.0, throughput_net / 1000.0);
 
 end:
     /* Cleanup everything: */
@@ -318,7 +318,7 @@ static double time_step_delta(struct timeval * t)
     t0.tv_sec = t->tv_sec;
     t0.tv_usec = t->tv_usec;
     gettimeofday(t, NULL);
-    return ((1000000 * t0.tv_sec + t0.tv_usec) / 1000.0) - ((1000000 * t->tv_sec + t->tv_usec) / 1000.0);
+    return ((1000000 * t->tv_sec + t->tv_usec) / 1000.0) - ((1000000 * t0.tv_sec + t0.tv_usec) / 1000.0);
 }
 
 /***********************************************************************************************//**
@@ -422,10 +422,10 @@ int main(int argc,char* argv[])
     if(argc == 2)
     {
         sprintf(wlan, "%s", argv[1]);
-        printf("VITOW will use interface '%s'\n", wlan);
+        printfd("VITOW will use interface '%s'\n", wlan);
     } else {
-        printf("Wrong number of arguments. WiFi interface name expected.\n");
-        printf("VITOW TX will exit now\n");
+        printfe("Wrong number of arguments. WiFi interface name expected.\n");
+        printfe("VITOW TX will exit now\n");
         return -1;
     }
 
@@ -433,7 +433,7 @@ int main(int argc,char* argv[])
     pthread_create(&bufferThreadHandler, 0, bufferingThread, NULL);
     pthread_join(bufferThreadHandler, NULL);
 
-    printf("VITOW TX will exit now\n");
+    printfd("VITOW TX will exit now\n");
     return 0;
 }
 
