@@ -58,7 +58,8 @@ void* rx(void* parameter)
     unsigned int    imagefilelen;
     int             writtenBytes = 0;
     int             bytes_to_write = SYMBOL_SIZE;
-
+    time_t          time_count = 0;
+    struct timeval  time_value;
     struct pcap_pkthdr * ppcapPacketHeader = NULL;
     struct ieee80211_radiotap_iterator rti;
     PENUMBRA_RADIOTAP_DATA prd;
@@ -73,7 +74,7 @@ void* rx(void* parameter)
 
     szErrbuf[0] = '\0';
     if((ppcap = pcap_open_live(wlan, 2048, 1, 20, szErrbuf)) == NULL) {
-        printf("Unable to open interface %s in pcap.\n", wlan);
+        printfe("Unable to open interface %s in pcap.\n", wlan);
         return (void *)-1;
     }
 
@@ -81,19 +82,19 @@ void* rx(void* parameter)
 
     switch(nLinkEncap) {
         case DLT_PRISM_HEADER:
-            printf("Link-layer header type: DLT_PRISM_HEADER\n");
+            // printfd("Link-layer header type: DLT_PRISM_HEADER\n");
             n80211HeaderLength = 0x20;
             sprintf(szProgram, "radio[0x4a:4]==0x13223344");
             break;
 
         case DLT_IEEE802_11_RADIO:
-            printf("Link-layer header type: DLT_IEEE802_11_RADIO\n");
+            // printfd("Link-layer header type: DLT_IEEE802_11_RADIO\n");
             n80211HeaderLength = 0x18;
             sprintf(szProgram, "ether[0x0a:4]==0x13223344");
             break;
 
         default:
-            printf("Link-layer header type: UNEXPECTED\n");
+            printfd("Link-layer header type: UNEXPECTED\n");
             return (void *)-1;
     }
     /* Once the live capture has started we need filter it. The most efficient way it to use BPF
@@ -104,14 +105,14 @@ void* rx(void* parameter)
     /* Create the filter and evalate if it fails on creation. */
     if(pcap_compile(ppcap, &bpfprogram, szProgram, 1, 0) == -1) {
         /* Error: */
-        printf("Failed to compile Berkeley Packet Filter\n");
-        printf("Error: %s\n", pcap_geterr(ppcap));
+        printfe("Failed to compile Berkeley Packet Filter\n");
+        printfe("Error: %s\n", pcap_geterr(ppcap));
         return (void *)-1;
     } else {
         /* Success: */
         if(pcap_setfilter(ppcap, &bpfprogram) == -1) {
             /* Error: */
-            printf("Failed to set Berkeley Packet Filer\n");
+            printfe("Failed to set Berkeley Packet Filer\n");
             return (void *)-1;
         }
         pcap_freecode(&bpfprogram);
@@ -119,9 +120,13 @@ void* rx(void* parameter)
 
     /* Continuously receive packets until DECO done or packets limit (forcing ML now). */
     while(!fBrokenSocket) {
-        retval = pcap_next_ex(ppcap, &ppcapPacketHeader,(const u_char**)&pu8Payload);
+        retval = pcap_next_ex(ppcap, &ppcapPacketHeader, (const u_char**)&pu8Payload);
         if(retval == 0) { /* Timeout. */
-            printf("Packet reception timedout\n");
+            if(time_count == 0) {
+                time_count = time(NULL);
+            }
+            printfw("[RX timeout % 3ld:%02d]                                                    \r",
+                (time(NULL) - time_count) / 60, (int)((time(NULL) - time_count) % 60));
             continue;
         } else if(retval < 0) { /* Error. */
             fBrokenSocket = true;
@@ -217,22 +222,35 @@ void* rx(void* parameter)
         id = ntohl(id);
         pu8Payload += sizeof(unsigned int);
 
-        // printf("ESI = %d, n = %d, k = %d, id = %d\n", esi, n, k, id);
-
         if(firstId) {
             firstId = false;
-            previousId = id;
-        } else {
-            if(id != previousId) {
-                if(id == (previousId-1)) {
-                    /* Ignore the error: (debug purposes). */
-                    printf("ID (%u) is different to the previous ID (%u), but it will be ignored.\n", id, previousId);
-                    id = previousId;
-                } else {
-                    printf("ID (%u) is different to the previous ID (%u). Exiting without errors\n", id, previousId);
-                    ret = 0;
-                    goto end;
+            if(id == previousId) {
+                /* This buffer has already been decoded in the previous transmission. There's no
+                 * need to do anything here. We'll sleep and reset this thread.
+                 */
+                usleep(5);
+                ret = 0;
+                goto end;
+            } else {
+                /* Show debug information and set previousId: */
+                if(time_count != 0) {
+                    time_count = 0;
+                    printf("\n");
                 }
+                printfd("[RX (%05d) start ] (N = %d; K = %d) FCS:%s Len:%d, Buffer ID: %d, Pkt(min): %d\n",
+                    id, n, k, ((prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS) ? "yes," : "no, "), (bytes - 16),
+                    id, (int)(k * OVERHEAD));
+                previousId = id;
+            }
+        } else {
+            /* If the video buffer changes in TX (different ID detected while receiving packets),
+             * the on-going transmission has to stop and be ignored and a new one has to start.
+             */
+            if(id != previousId) {
+                printf("\n");
+                printfd("[Buffer changed   ] Buffer ID(old): %d -> Buffer ID(new): %d\n", previousId, id);
+                ret = 0;
+                goto end;
             }
         }
 
@@ -257,33 +275,30 @@ void* rx(void* parameter)
              * parameters used by the sender/encoder...
              */
             if((ret = of_create_codec_instance(&ses, codec_id, OF_DECODER, 0)) != OF_STATUS_OK) {
-                printf("Unable to create OpenFEC code instance\n");
+                printfe("Unable to create OpenFEC code instance\n");
                 ret = -1;
                 goto end;
             }
             if(of_set_fec_parameters(ses, (of_parameters_t *)params) != OF_STATUS_OK) {
-                printf("Unable to set OpenFEC parameters for codec_id = %d\n", codec_id);
+                printfe("Unable to set OpenFEC parameters for codec_id = %d\n", codec_id);
                 ret = -1;
                 goto end;
             }
 
             initialized = true;
-            printf("OpenFEC initialization successful\n");
         }
 
         if(esi > n) {
-            printf("Bad ESI (%d > %d). This packet will be skipped\n", esi, n);
             continue;
         }
 
         if(first) {
-            printf("Decoding started. Waiting for new packets...\n" );
             /* Allocate a table for the received encoding symbol buffers.
              * We'll update it progressively.
              */
             if(((recvd_symbols_tab = (void **) calloc(n, sizeof(void *))) == NULL) ||
                ((src_symbols_tab   = (void **) calloc(n, sizeof(void *))) == NULL)) {
-                perror("Unable to allocate memory for the received symbols table");
+                printfe("Unable to allocate memory for the received symbols table\n");
                 ret = -1;
                 goto end;
             }
@@ -291,33 +306,44 @@ void* rx(void* parameter)
         }
 
         if((pkt = malloc(SYMBOL_SIZE)) == NULL) {
-            perror("Unable to allocate memory for the packet");
+            printfe("Unable to allocate memory for the packet\n");
             ret = -1;
             goto end;
         }
         memcpy(pkt, u8aSymbol, SYMBOL_SIZE);
         recvd_symbols_tab[esi] = (char *)pkt;
 
-        if(!(n_received % 100)) {
-            printf("FCS:%s HdrLen:%02d, Len:%04d, ", ((prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS) ? "yes," : "no, "), (u16HeaderLen + n80211HeaderLength), bytes);
-            printf("Symbol %5d (%s), ESI:%04u, N:%04u, K:%04u, ID:%u\n", n_received, ((esi < k) ? "source" : "repair"), esi, n, k, id);
+        if(!(n_received % 11)) {
+            printfd("[RX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\r", id,
+                (100.0 * (double)n_received / (double)(k * OVERHEAD)),
+                n_received, esi, ((esi < k) ? "source" : "repair"));
+            // printfd("Symbol %5d (%s), ESI:%04u, N:%04u, K:%04u, ID:%u\n", n_received, ((esi < k) ? "source" : "repair"), esi, n, k, id);
         }
 
         if(of_decode_with_new_symbol(ses, (char*)pkt, esi) == OF_STATUS_ERROR) {
-            printf("Unable to decode symbol %d, ESI=%d\n", n_received, esi);
+            printfw("\nUnable to decode symbol %d, ESI=%d\n", n_received, esi);
             ret = -1;
             goto end;
         }
 
-        if((double)n_received > (double)(k * (1.0 + OVERHEAD))) {
-            printf("Received packets (%d) > Overhead (%.3f)\n", n_received, (double)(k * (1.0 + OVERHEAD)) );
+        if((double)n_received > (double)(k * OVERHEAD)) {
+            printf("\n");
+            printfd("[RX (%05d) %05.1f%%] Enough redundant information received (%d pkts.)\n", id,
+                (100.0 * (double)n_received / (double)(k * OVERHEAD)), n_received);
+            break;
+        } else if (n_received > k && (of_is_decoding_complete(ses) == true)) {
+            printfd("\n[RX (%05d) %05.1f%%] Decoding complete (%d pkts.)\n", id,
+                (100.0 * (double)n_received / (double)(k * OVERHEAD)), n_received);
+            done = true;
             break;
         }
     } /* while(...) exit: broken socket or 5% overhead. */
     if(fBrokenSocket) {
-        printf("ERROR: broken socket\n");
+        printfe("ERROR: broken socket\n");
     }
 
+    gettimeofday(&time_value, NULL);
+    time_count = 1000000 * time_value.tv_sec + time_value.tv_usec;
     if(!done && (n_received >= k)) {
         /* There are no more packets but we received at least k, and the use of
          * of_decode_with_new_symbol() didn't succedd to decode. Try with of_finish_decoding.
@@ -325,17 +351,19 @@ void* rx(void* parameter)
          * Staircase given that of_decode_with_new_symbol performs ITerative decoding, whereas
          * of_finish_decoding performs ML decoding
          */
+        printfd("[RX complete      ] Finishing decoding (ML)... ");
+        fflush(stdin);
         ret = of_finish_decoding(ses);
-        printf("of_finish_decoding = %d, error = %d\n", ret, (ret == OF_STATUS_ERROR || ret == OF_STATUS_FATAL_ERROR));
         if(ret == OF_STATUS_ERROR || ret == OF_STATUS_FATAL_ERROR) {
-            printf("ERROR: ML decoding failed\n");
+            printf(DBG_REDD"error"DBG_NOCOLOR".\n");
             ret = -1;
             goto end;
         } else if (ret == OF_STATUS_OK) {
-            printf("ML decoding successful\n");
+            printf(DBG_GREEND"done"DBG_NOCOLOR".\n");
             done = true;
         } else {
-            printf("ERROR: ML decoding returned and unexpected value (%d)\n", ret);
+            printf(DBG_REDD"error"DBG_NOCOLOR".\n");
+            printfe("ML decoding returned and unexpected value (%d)\n", ret);
             ret = -1;
             goto end;
         }
@@ -347,22 +375,24 @@ void* rx(void* parameter)
          * the pointers (same value).
          */
         if(of_get_source_symbols_tab(ses, src_symbols_tab) != OF_STATUS_OK) {
-            printf("Getting source symbols table failed\n");
+            printfe("Getting source symbols table failed\n");
             ret = -1;
             goto end;
         }
 
-        printf(DBG_GREEN"Done! All source symbols rebuilt after receiving %u packets\n", n_received);
-        printf("-- Overhead: %.2f %% \n"DBG_NOCOLOR, (((float) n_received) / k) * 100 - 100);
-
+        gettimeofday(&time_value, NULL);
+        printfo("[RX complete      ] All source symbols rebuilt with %u packets. [%.2f ms] [Overhead: %.2f %%]\n",
+            n_received, (1000000 * time_value.tv_sec + time_value.tv_usec - time_count) / 1000.0,
+            ((((float) n_received) / k) * 100 - 100));
 
         if((write_ptr = fopen(OUTPUT_FILENAME, "ab")) == NULL) {
-            perror("Could not open/create the output file (" OUTPUT_FILENAME ")");
+            printfe("Could not open/create the output file (" OUTPUT_FILENAME ")");
             ret = -1;
             goto end;
         }
         memcpy(&imagefilelen, src_symbols_tab[0], 4); /* Copies length value. */
-        printf("Dumping packet into the file system. Length: %u\n", imagefilelen);
+        printfd("[RX dump          ] Dumping buffer contents (%d Bytes = %d KiB = %.2f MiB)\n",
+            imagefilelen, (imagefilelen / 1024), (imagefilelen / 1048576.0));
         /* The first write is special, so let's take it into account */
         fwrite(src_symbols_tab[0] + 4, 1, SYMBOL_SIZE - 4, write_ptr);
         writtenBytes = SYMBOL_SIZE - 4;
@@ -383,6 +413,7 @@ end:
     /* Clean-up everything... */
     previousId = id;
     first = true;
+    firstId = true;
     n_received = 0;
 
     if(ses) {
@@ -439,31 +470,47 @@ int main(int argc, char *argv[])
     pthread_t threadHandler;
     void *retval;
 
+    srand(time(NULL));
     /* Setup wireless interface: */
     if(argc == 2)
     {
         sprintf(wlan, "%s", argv[1]);
-        printf("VITOW will use interface '%s'\n", wlan);
+        printfd("VITOW will use interface '%s'\n", wlan);
     } else {
-        printf("Wrong number of arguments. WiFi interface name expected.\n");
-        printf("VITOW RX will exit now\n");
+        printfe("Wrong number of arguments. WiFi interface name expected.\n");
+        printfd("VITOW RX will exit now\n");
         return -1;
     }
 
+
     /* Truncate previous output file: */
     if(truncate(OUTPUT_FILENAME, 0) < 0) {
-        perror("Unable to truncate the output file `"OUTPUT_FILENAME"`\n");
+        printfe("Unable to truncate the output file `"OUTPUT_FILENAME"`\n");
     }
-
     while(1) {
         pthread_create(&threadHandler, NULL, rx, NULL);
         pthread_join(threadHandler, &retval);
         if((int)(intptr_t)retval != 0) {
-            printf(DBG_RED"Errors found in RX thread. Exiting\n"DBG_NOCOLOR);
-            break;
-        }
+            printfe("Errors found in RX thread. Re-launching in 5 seconds...\n");
+            sleep(5);
+        } /* else... does nothing: the thread will be re-launched instantly.*/
     }
 
-    printf("VITOW RX will exit now\n");
+    printfd("VITOW RX will exit now\n");
     return -1;
+}
+
+
+const char * curr_time_format(void)
+{
+    time_t t; // Current time.
+    static char retval[21];
+    struct tm *tmp;
+
+    t = time(NULL);
+    tmp = localtime(&t);
+    // strftime(retval, 21, "%Y-%m-%d %H:%M:%S", tmp);
+    strftime(retval, 21, "%H:%M:%S", tmp);
+
+    return retval;
 }

@@ -225,16 +225,21 @@ void* transmittingThread(void* args)
         Nsend   = htonl(n);                 /* N    */
         Ksend   = htonl(k);                 /* K    */
         IDsend  = htonl(id);                /* ID   */
-        *(ptr_buff++) = ESIsend;
-        *(ptr_buff++) = Nsend;
-        *(ptr_buff++) = Ksend;
-        *(ptr_buff++) = IDsend;
+
+        memcpy(ptr_buff, &ESIsend, sizeof(ESIsend));
+        ptr_buff += sizeof(ESIsend);
+        memcpy(ptr_buff, &Nsend, sizeof(Nsend));
+        ptr_buff += sizeof(Nsend);
+        memcpy(ptr_buff, &Ksend, sizeof(Ksend));
+        ptr_buff += sizeof(Ksend);
+        memcpy(ptr_buff, &IDsend, sizeof(IDsend));
+        ptr_buff += sizeof(IDsend);
 
         /* --- Copy the rest of the packet: ----------------------------------------------------- */
         memcpy(ptr_buff, enc_symbols_tab[rand_order[esi]], SYMBOL_SIZE);
         //inject object, pointer, size.
         r = pcap_inject(ppcap, u8aSendBuffer,
-            sizeof(u8aRadiotapHeader) + sizeof (u8aIeeeHeader) + 16 + SYMBOL_SIZE);
+            sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE);
 
         if(r != (sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE)) {
             printf("Problems during packet (%d) injection\n", esi);
@@ -401,4 +406,18 @@ int main(int argc,char* argv[])
 
     printf("VITOW TX will exit now\n");
     return 0;
+}
+
+const char * curr_time_format(void)
+{
+    time_t t; // Current time.
+    static char retval[21];
+    struct tm *tmp;
+
+    t = time(NULL);
+    tmp = localtime(&t);
+    // strftime(retval, 21, "%Y-%m-%d %H:%M:%S", tmp);
+    strftime(retval, 21, "%H:%M:%S", tmp);
+
+    return retval;
 }

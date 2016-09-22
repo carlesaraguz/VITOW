@@ -3,14 +3,18 @@ OBJDIR := obj
 ROBJS  := $(addprefix $(OBJDIR)/,vitow_rx.o radiotap.o)
 TOBJS  := $(addprefix $(OBJDIR)/,vitow_tx.o)
 
-CFLAGS  = -I../openfec_v1.4.2/src/lib_common -Wall
+CFLAGS  = -I../openfec_v1.4.2/src/lib_common -Wall -DVITOW_DEBUG
 LDFLAGS = -lopenfec -lm -lpcap -lpthread
 
 all: vitow_rx vitow_tx
 
 $(OBJDIR)/%.o : %.c
 	@echo -n -e '---------: COMPILING $< -> $@ : '
-	@gcc -c $< -o $@ $(CFLAGS) && echo 'done.'
+ifeq ($<,vitow_rx.c)
+	@gcc -c $< -o $@ $(CFLAGS) -DVITOW_RX_END && echo 'done.'
+else
+	@gcc -c $< -o $@ $(CFLAGS) -DVITOW_TX_END && echo 'done.'
+endif
 
 vitow_tx: $(TOBJS) | $(OBJDIR)
 	@echo -n -e '---------: LINKING $< -> $@ : '
