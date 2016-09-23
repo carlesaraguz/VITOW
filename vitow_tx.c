@@ -257,11 +257,11 @@ void* transmittingThread(void* args)
             goto end;
         } else if(esi % 11 == 0) {
             printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\r", id, (double)esi/(double)n,
-                esi, ESIsend, ((ESIsend < k) ? "source" : "repair"));
+                esi, ntohl(ESIsend), ((ntohl(ESIsend) < k) ? "source" : "repair"));
         }
     }
     printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\n", id, (double)esi/(double)n,
-        esi, ESIsend, ((ESIsend < k) ? "source" : "repair"));
+        esi, ntohl(ESIsend), ((ntohl(ESIsend) < k) ? "source" : "repair"));
 
     time_elapsed = time_step_delta(&time_value);
     throughput_abs = ((sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE) * n * 8.0) / time_elapsed;
@@ -276,7 +276,6 @@ end:
         close(so);
     }
     if(ses) {
-        // printf("Releasing OpenFEC codec instance.\n");
         of_release_codec_instance(ses);
     }
     if(params) {
@@ -330,26 +329,6 @@ void randomize_array(unsigned int **array, unsigned int arrayLen)
     unsigned int    randInd = 0;
     unsigned int    i;
 
-    /**
-     *  \note
-     *  This part of the code has been removed given that the random seed has been initialized
-     *  previously (in the program entry point). There's no need to reset the seed. Moreover,
-     *  setting the seed with the current time may yield unexpected results if insufficient delay is
-     *  left between one seed initialization and the following one (because time values might be
-     *  equal).
-     *
-     *  This was the previous code:
-     *      unsigned int seed;          // Random seed for the srand() function
-     *      struct timeval  tv;
-     *
-     *      if(gettimeofday(&tv, NULL) < 0) {
-     *          OF_PRINT_ERROR(("gettimeofday() failed"))
-     *          exit(-1);
-     *      }
-     *      seed = (int)tv.tv_usec;
-     *      srand(seed);
-     */
-
     for(i = 0; i < arrayLen; i++) {
         (*array)[i] = i;
     }
@@ -360,8 +339,6 @@ void randomize_array(unsigned int **array, unsigned int arrayLen)
         (*array)[randInd] = backup;
     }
 }
-
-
 
 /***********************************************************************************************//**
  * Buffering thread. Fills round-robin buffers 1 and 2.
