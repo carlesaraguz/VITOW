@@ -256,14 +256,14 @@ void* transmittingThread(void* args)
             ret = -1;
             goto end;
         } else if(esi % 11 == 0) {
-            printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\r", id, (double)esi/(double)n,
+            printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\r", id, (100.0 * (double)esi / (double)n),
                 esi, ntohl(ESIsend), ((ntohl(ESIsend) < k) ? "source" : "repair"));
         }
     }
-    printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\n", id, (double)esi/(double)n,
+    printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\n", id, (100.0 * (double)esi / (double)n),
         esi, ntohl(ESIsend), ((ntohl(ESIsend) < k) ? "source" : "repair"));
 
-    time_elapsed = time_step_delta(&time_value);
+    time_elapsed = time_step_delta(&time_value) / 1000.0; /* Time elapsed in seconds. */
     throughput_abs = ((sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE) * n * 8.0) / time_elapsed;
     throughput_net = (SYMBOL_SIZE * n * 8.0) / time_elapsed;
 
