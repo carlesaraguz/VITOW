@@ -267,8 +267,8 @@ void* transmittingThread(void* args)
     throughput_abs = ((sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE) * n * 8.0) / time_elapsed;
     throughput_net = (SYMBOL_SIZE * n * 8.0) / time_elapsed;
 
-    printfo("[TX (%05d) done  ] [%.2f ms] Transmission completed. Throughput = [%.2f | %.2f] kbps\n", id,
-        time_elapsed, throughput_abs / 1000.0, throughput_net / 1000.0);
+    printfo("[TX (%05d) done  ] [%.2f ms] Transmission completed. Throughput = [%.2f | %.2f] Mbps\n", id,
+        time_elapsed, throughput_abs / 1000000.0, throughput_net / 1000000.0);
 
 end:
     /* Cleanup everything: */
