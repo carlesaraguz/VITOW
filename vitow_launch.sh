@@ -13,4 +13,4 @@
 # -pf high      --> Video profile: high.
 # -o -          --> Output to stdout.
 
-raspivid -t 0 -w 854 -h 480 -b 750000 -ih -fps 25 -n -pf high -o - | sudo ./vitow_tx wlan1
+raspivid -t 0 -w 854 -h 480 -b 750000 -ih -fps 25 -n -pf high -o - | tee vitow_input.mp4 | sudo ./vitow_tx wlan1
