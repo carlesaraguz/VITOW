@@ -30,6 +30,7 @@ obj/
 *.hex
 vitow_rx
 vitow_tx
+vitow_stream.sh
 
 # Debug files
 *.dSYM/
