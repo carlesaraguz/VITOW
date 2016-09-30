@@ -269,6 +269,7 @@ void* transmittingThread(void* args)
 
     printfo("[TX (%05d) done  ] [%.2f ms] Transmission completed. Throughput = [%.2f | %.2f] Mbps\n", id,
         time_elapsed, throughput_abs / 1000000.0, throughput_net / 1000000.0);
+    send_beacon_msg(VITOW, "Transmission completed. Throughput = [%.2f | %.2f] Mbps", throughput_abs / 1000000.0, throughput_net / 1000000.0);
 
 end:
     /* Cleanup everything: */

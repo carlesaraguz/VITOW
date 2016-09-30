@@ -32,6 +32,8 @@
 
 #include "of_openfec_api.h"
 #include "radiotap.h"
+#include "cc_beacon_iface.h"
+#include "cc_beacon_iface_wrapper.h"
 
 
 /*** PARAMETERS ***********************************************************************************/
