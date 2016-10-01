@@ -444,6 +444,10 @@ void* bufferingThread(void* args)
             printfd("GPS and Temperature data successfully retrieved from the database\n");
         }
         memcpy(&buffer2[(BUFFER_SIZE - sizeof(gd))], &gd, sizeof(gd));
+        char * ptr = (char *)&gd;
+        for(int i = 0; i < sizeof(gd); i++) {
+            printf("Byte %d -> %.2x\n", i, ptr[i]);
+        }
 
         pthread_join(tx_thread_1, &retval);     /* Wait until thread 1 finishes. */
         if((int)(intptr_t)retval == -25) {

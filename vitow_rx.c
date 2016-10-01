@@ -406,6 +406,10 @@ void* rx(void* parameter)
                 /* This chunk already includes GPS and beacon data: */
                 printfd("[RX dump          ] Dumping GPS and Temperature data\n");
                 memcpy(&gd, src_symbols_tab[esi] + bytes_to_write, sizeof(gd));
+                char * ptr = (char *)&gd;
+                for(int i = 0; i < sizeof(gd); i++) {
+                    printf("Byte %d -> %.2x\n", i, ptr[i]);
+                }
                 break;
             } else {
                 writtenBytes += bytes_to_write;
