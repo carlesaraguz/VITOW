@@ -269,7 +269,7 @@ void* transmittingThread(void* args)
 
     printfo("[TX (%05d) done  ] [%.2f ms] Transmission completed. Throughput = [%.2f | %.2f] Mbps\n", id,
         time_elapsed, throughput_abs / 1000000.0, throughput_net / 1000000.0);
-    send_beacon_msg(VITOW, "Transmission completed. Throughput = [%.2f | %.2f] Mbps", throughput_abs / 1000000.0, throughput_net / 1000000.0);
+    // send_beacon_msg(VITOW, "Transmission completed. Throughput = [%.2f | %.2f] Mbps", throughput_abs / 1000000.0, throughput_net / 1000000.0);
 
 end:
     /* Cleanup everything: */
@@ -306,7 +306,7 @@ end:
     if(ret != 0) {
         printfe("Transmitting thread finished with errors\n");
     } else if((throughput_abs / 1000000.0) > 5.0 || (throughput_net / 1000000.0) > 5.0) {
-        send_beacon_msg(VITOW, "Unreasonable throughput. WiFi dongle has probably left monitor mode");
+        // send_beacon_msg(VITOW, "Unreasonable throughput. WiFi dongle has probably left monitor mode");
         printfe("Throughput is too high that it's infeasinable. WiFi dongle has probably switched to managed mode\n");
         return (void *)(intptr_t)(-25);
     }
@@ -386,11 +386,11 @@ void* bufferingThread(void* args)
             pthread_join(tx_thread_2, &retval);     /* Wait until thread 2 finishes. */
             if((int)(intptr_t)retval == -25) {
                 printfe("[BUFFERING        ] Fatal error on TX thread. Will reset VITOW now\n");
-                send_beacon_msg(VITOW, "Fatal error in VITOW. Will reset it now.");
+                // send_beacon_msg(VITOW, "Fatal error in VITOW. Will reset it now.");
                 return (void *)-2;
             } else if((int)(intptr_t)retval != 0) {
                 printfe("[BUFFERING        ] Errors found in TX thread (2). Restarting all threads.\n");
-                send_beacon_msg(VITOW, "Unexpected error found in VITOW. Will reset all threads now.");
+                // send_beacon_msg(VITOW, "Unexpected error found in VITOW. Will reset all threads now.");
                 return (void *)-1;
             }
         } else {
@@ -437,11 +437,11 @@ void* bufferingThread(void* args)
         pthread_join(tx_thread_1, &retval);     /* Wait until thread 1 finishes. */
         if((int)(intptr_t)retval == -25) {
             printfe("[BUFFERING        ] Fatal error on TX thread. Will reset VITOW now\n");
-            send_beacon_msg(VITOW, "Fatal error in VITOW. Will reset it now.");
+            // send_beacon_msg(VITOW, "Fatal error in VITOW. Will reset it now.");
             return (void *)-2;
         } else if((int)(intptr_t)retval != 0) {
             printfe("[BUFFERING        ] Errors found in TX thread (2). Restarting all threads.\n");
-            send_beacon_msg(VITOW, "Unexpected error found in VITOW. Will reset all threads now.");
+            // send_beacon_msg(VITOW, "Unexpected error found in VITOW. Will reset all threads now.");
             return (void *)-1;
         }
         buffer_id = 2;
