@@ -176,6 +176,15 @@ void* transmittingThread(void* args)
         // memset(enc_symbols_tab[esi], (char)(esi + 1), SYMBOL_SIZE);
         memcpy(enc_symbols_tab[esi], imagebuffer + (esi * SYMBOL_SIZE_32), SYMBOL_SIZE);
     }
+
+    int i;
+    unsigned char * j;
+    for(i = 0; i < SYMBOL_SIZE; i++) {
+        *j = enc_symbols_tab[k-1];
+        printf("Byte %d -> %.2x\n", i, j[i]);
+    }
+
+
     printfd("[TX (%05d)       ] [%.2f ms] Symbols dumped from Buffer #%d to encoding table\n", id,
         time_step_delta(&time_value), *buffer_id);
 
@@ -444,10 +453,6 @@ void* bufferingThread(void* args)
             printfd("GPS and Temperature data successfully retrieved from the database\n");
         }
         memcpy(&buffer2[BUFFER_SIZE - sizeof(gd)], &gd, sizeof(gd));
-        int i;
-        for(i = BUFFER_SIZE - sizeof(gd); i < BUFFER_SIZE; i++) {
-            printf("Byte %d -> %.2x\n", i, buffer2[i]);
-        }
 
         pthread_join(tx_thread_1, &retval);     /* Wait until thread 1 finishes. */
         if((int)(intptr_t)retval == -25) {
