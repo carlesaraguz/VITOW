@@ -380,18 +380,18 @@ void* bufferingThread(void* args)
         } else {
             sprintf(gd.time_local, "%11ld", time(NULL));
             sprintf(gd.time_gps,   "%11ld", time(NULL) + 1);
-            gd.lat = 2.2;
-            gd.lng = 3.3;
-            gd.v_kph = 4.4;
-            gd.sea_alt = 5.5;
-            gd.geo_alt = 6.6;
-            gd.course = 7.7;
-            gd.temp = 8.8;
-            gd.cpu_temp = 9.9;
+            gd.lat = 99.99;
+            gd.lng = 88.88;
+            gd.v_kph = 77.77;
+            gd.sea_alt = 66.66;
+            gd.geo_alt = 55.55;
+            gd.course = 44.44;
+            gd.temp = 33.33;
+            gd.cpu_temp = 22.22;
             gd.gpu_temp = 11.11;
             printfd("GPS and Temperature data successfully retrieved from the database\n");
         }
-        memcpy(&buffer1[(BUFFER_SIZE - sizeof(gd))], &gd, sizeof(gd));
+        memcpy(&buffer1[BUFFER_SIZE - sizeof(gd)], &gd, sizeof(gd));
 
         if(started) {
             pthread_join(tx_thread_2, &retval);     /* Wait until thread 2 finishes. */
@@ -432,14 +432,14 @@ void* bufferingThread(void* args)
         } else {
             sprintf(gd.time_local, "%11ld", time(NULL));
             sprintf(gd.time_gps,   "%11ld", time(NULL) + 1);
-            gd.lat = 2.2;
-            gd.lng = 3.3;
-            gd.v_kph = 4.4;
-            gd.sea_alt = 5.5;
-            gd.geo_alt = 6.6;
-            gd.course = 7.7;
-            gd.temp = 8.8;
-            gd.cpu_temp = 9.9;
+            gd.lat = 99.99;
+            gd.lng = 88.88;
+            gd.v_kph = 77.77;
+            gd.sea_alt = 66.66;
+            gd.geo_alt = 55.55;
+            gd.course = 44.44;
+            gd.temp = 33.33;
+            gd.cpu_temp = 22.22;
             gd.gpu_temp = 11.11;
             printfd("GPS and Temperature data successfully retrieved from the database\n");
         }
