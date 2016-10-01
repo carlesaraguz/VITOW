@@ -3,8 +3,8 @@ OBJDIR := obj
 ROBJS  := $(addprefix $(OBJDIR)/,vitow_rx.o radiotap.o)
 TOBJS  := $(addprefix $(OBJDIR)/,vitow_tx.o)
 
-CFLAGS  = -I../openfec_v1.4.2/src/lib_common -I../libraries -I../module_beacon/cc1101_handler/include -Wall -DVITOW_DEBUG
-LDFLAGS = -lopenfec -lm -lpcap -lpthread -lcc_beacon_iface_wrapper -ldbman -L../libraries
+CFLAGS  = -I../openfec_v1.4.2/src/lib_common -I../libraries -Wall -DVITOW_DEBUG
+LDFLAGS = -lopenfec -lm -lpcap -lpthread -ldbman -L../libraries
 
 all: vitow_rx vitow_tx
 
