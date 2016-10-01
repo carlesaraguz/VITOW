@@ -391,8 +391,8 @@ void* rx(void* parameter)
             goto end;
         }
         memcpy(&imagefilelen, src_symbols_tab[0], 4); /* Copies length value. */
-        printfd("[RX dump          ] Dumping buffer contents (%d Bytes - %ld = %d KiB = %.2f MiB)\n",
-            imagefilelen, sizeof(gd), ((imagefilelen - sizeof(gd)) / 1024),
+        printfd("[RX dump          ] Dumping buffer contents (%d Bytes - %d = %d KiB = %.2f MiB)\n",
+            imagefilelen, (int)sizeof(gd), ((imagefilelen - (int)sizeof(gd)) / 1024),
             ((imagefilelen - sizeof(gd)) / 1048576.0));
 
         /* Modify `imagefilelen` to take into account the GPS/Temp data appended at the end: */

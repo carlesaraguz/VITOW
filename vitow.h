@@ -34,6 +34,7 @@
 #include "radiotap.h"
 #include "cc_beacon_iface.h"
 #include "cc_beacon_iface_wrapper.h"
+#include "dbman.h"
 
 
 /*** PARAMETERS ***********************************************************************************/
