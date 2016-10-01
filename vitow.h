@@ -42,7 +42,7 @@
 #define BUFFER_ELEMS    1000                /* Elements in the buffer.                            */
 #define BUFFER_SIZE     (SYMBOL_SIZE * BUFFER_ELEMS)    /* Round-Robin buffers size.              */
 #define SYMBOL_SIZE_32  (SYMBOL_SIZE / 4)   /* Used when pointers to buffer are (int *).          */
-#define OVERHEAD        1.15                /* Protocol overhead.                                 */
+#define OVERHEAD        1.05                /* Protocol overhead.                                 */
 #define OUTPUT_FILENAME "vitow_output"      /* Filename at RX with the received data.             */
 
 #define DBG_REDB    "\x1b[31;1m"
