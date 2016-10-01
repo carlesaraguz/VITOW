@@ -407,7 +407,8 @@ void* rx(void* parameter)
                 printfd("[RX dump          ] Dumping GPS and Temperature data\n");
                 memcpy(&gd, src_symbols_tab[esi] + bytes_to_write, sizeof(gd));
                 char * ptr = (char *)&gd;
-                for(int i = 0; i < sizeof(gd); i++) {
+                int i;
+                for(i = 0; i < sizeof(gd); i++) {
                     printf("Byte %d -> %.2x\n", i, ptr[i]);
                 }
                 break;

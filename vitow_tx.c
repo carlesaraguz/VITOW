@@ -445,7 +445,8 @@ void* bufferingThread(void* args)
         }
         memcpy(&buffer2[(BUFFER_SIZE - sizeof(gd))], &gd, sizeof(gd));
         char * ptr = (char *)&gd;
-        for(int i = 0; i < sizeof(gd); i++) {
+        int i;
+        for(i = 0; i < sizeof(gd); i++) {
             printf("Byte %d -> %.2x\n", i, ptr[i]);
         }
 
