@@ -66,6 +66,7 @@ void* rx(void* parameter)
     unsigned char * pu8Payload = u8aReceiveBuffer;
     unsigned char * pu8Symbol = u8aSymbol;
     GPS_data        gd;
+    unsigned char * gps_data_ptr;
 
     /*  Initiallization of `ses` was wrong:
      *      *ses = previousId;
@@ -391,12 +392,9 @@ void* rx(void* parameter)
             goto end;
         }
         memcpy(&imagefilelen, src_symbols_tab[0], 4); /* Copies length value. */
-        printfd("[RX dump          ] Dumping buffer contents (%d Bytes - %d = %d KiB = %.2f MiB)\n",
-            imagefilelen, (int)sizeof(gd), ((imagefilelen - (int)sizeof(gd)) / 1024),
+        printfd("[RX dump          ] Dumping buffer contents (%d Bytes = %d KiB = %.2f MiB)\n",
+            imagefilelen - (int)sizeof(gd), ((imagefilelen - (int)sizeof(gd)) / 1024),
             ((imagefilelen - sizeof(gd)) / 1048576.0));
-
-        /* Modify `imagefilelen` to take into account the GPS/Temp data appended at the end: */
-        imagefilelen -= sizeof(gd);
 
         /* The first write is special, so let's take it into account */
         fwrite(src_symbols_tab[0] + 4, 1, SYMBOL_SIZE - 4, write_ptr);
@@ -404,15 +402,20 @@ void* rx(void* parameter)
 
         for(esi = 1; esi < k; esi++) {
             fwrite(src_symbols_tab[esi], 1, bytes_to_write, write_ptr);
-            writtenBytes += SYMBOL_SIZE;
-            if(writtenBytes + bytes_to_write >= imagefilelen) {
-               bytes_to_write = imagefilelen - writtenBytes;
+            if(bytes_to_write != SYMBOL_SIZE) {
+                /* This chunk already includes GPS and beacon data: */
+                printfd("[RX dump          ] Dumping GPS and Temperature data\n");
+                memcpy(&gd, src_symbols_tab[esi] + bytes_to_write, sizeof(gd));
+                break;
+            } else {
+                writtenBytes += bytes_to_write;
+                if(writtenBytes + bytes_to_write >= imagefilelen - sizeof(gd)) {
+                   bytes_to_write = imagefilelen - writtenBytes - sizeof(gd);
+                }
             }
         }
 
-        /* Recover GPS data from last symbol: */
-        memcpy(&gd, src_symbols_tab + imagefilelen, sizeof(gd));
-        printf("GPS data fetched:\n gd.time_local = %ld,\n gd.time_gps = %ld,\n gd.lat = %lf,\n "
+        printf("GPS data fetched:\n gd.time_local = %s,\n gd.time_gps = %s,\n gd.lat = %lf,\n "
                 "gd.lng = %lf,\n gd.v_kph = %lf,\n gd.sea_alt = %lf,\n gd.geo_alt = %lf,\n "
                 "gd.course = %lf,\n gd.temp = %lf,\n gd.cpu_temp = %lf,\n gd.gpu_temp = %lf\n ",
                 gd.time_local, gd.time_gps, gd.lat, gd.lng, gd.v_kph, gd.sea_alt, gd.geo_alt,

@@ -365,8 +365,8 @@ void* bufferingThread(void* args)
         /* Fill the remaining space in the buffer with last GPS data: */
         if(dbman_get_gps_data(&gd) != 0) {
             /* Data could not be retrieved from Database: fill with error data. */
-            gd.time_local = time(NULL);
-            gd.time_gps = gd.time_local;
+            sprintf(gd.time_local, "%11ld", time(NULL));
+            sprintf(gd.time_gps,   "%11ld", time(NULL) + 1);
             gd.lat = 0.0;
             gd.lng = 0.0;
             gd.v_kph = 0.0;
@@ -378,6 +378,17 @@ void* bufferingThread(void* args)
             gd.gpu_temp = 0.0;
             printfe("GPS data could not be retrieved from the database. Using default values\n");
         } else {
+            sprintf(gd.time_local, "%11ld", time(NULL));
+            sprintf(gd.time_gps,   "%11ld", time(NULL) + 1);
+            gd.lat = 2.2;
+            gd.lng = 3.3;
+            gd.v_kph = 4.4;
+            gd.sea_alt = 5.5;
+            gd.geo_alt = 6.6;
+            gd.course = 7.7;
+            gd.temp = 8.8;
+            gd.cpu_temp = 9.9;
+            gd.gpu_temp = 11.11;
             printfd("GPS and Temperature data successfully retrieved from the database\n");
         }
         memcpy(&buffer1[(BUFFER_SIZE - sizeof(gd))], &gd, sizeof(gd));
@@ -406,8 +417,8 @@ void* bufferingThread(void* args)
         /* Fill the remaining space in the buffer with last GPS data: */
         if(dbman_get_gps_data(&gd) != 0) {
             /* Data could not be retrieved from Database: fill with error data. */
-            gd.time_local = time(NULL);
-            gd.time_gps = gd.time_local;
+            sprintf(gd.time_local, "%11ld", time(NULL));
+            sprintf(gd.time_gps,   "%11ld", time(NULL) + 1);
             gd.lat = 0.0;
             gd.lng = 0.0;
             gd.v_kph = 0.0;
@@ -419,8 +430,8 @@ void* bufferingThread(void* args)
             gd.gpu_temp = 0.0;
             printfe("GPS data could not be retrieved from the database. Using default values\n");
         } else {
-            gd.time_local = 0;
-            gd.time_gps = 1;
+            sprintf(gd.time_local, "%11ld", time(NULL));
+            sprintf(gd.time_gps,   "%11ld", time(NULL) + 1);
             gd.lat = 2.2;
             gd.lng = 3.3;
             gd.v_kph = 4.4;
