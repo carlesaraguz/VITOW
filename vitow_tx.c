@@ -376,20 +376,9 @@ void* bufferingThread(void* args)
             gd.temp = 0.0;
             gd.cpu_temp = 0.0;
             gd.gpu_temp = 0.0;
-            printfe("GPS data could not be retrieved from the database. Using default values\n");
+            printfe("[BUFFERING        ] GPS data could not be retrieved from the database. Using default values\n");
         } else {
-            sprintf(gd.time_local, "%11ld", time(NULL));
-            sprintf(gd.time_gps,   "%11ld", time(NULL) + 1);
-            gd.lat = 99.99;
-            gd.lng = 88.88;
-            gd.v_kph = 77.77;
-            gd.sea_alt = 66.66;
-            gd.geo_alt = 55.55;
-            gd.course = 44.44;
-            gd.temp = 33.33;
-            gd.cpu_temp = 22.22;
-            gd.gpu_temp = 11.11;
-            printfd("GPS and Temperature data successfully retrieved from the database\n");
+            printfd("[BUFFERING        ] GPS and Temperature data successfully retrieved from the database\n");
         }
         memcpy(&buffer1[BUFFER_SIZE - sizeof(gd)], &gd, sizeof(gd));
 
@@ -428,20 +417,9 @@ void* bufferingThread(void* args)
             gd.temp = 0.0;
             gd.cpu_temp = 0.0;
             gd.gpu_temp = 0.0;
-            printfe("GPS data could not be retrieved from the database. Using default values\n");
+            printfe("[BUFFERING        ] GPS data could not be retrieved from the database. Using default values\n");
         } else {
-            sprintf(gd.time_local, "%11ld", time(NULL));
-            sprintf(gd.time_gps,   "%11ld", time(NULL) + 1);
-            gd.lat = 99.99;
-            gd.lng = 88.88;
-            gd.v_kph = 77.77;
-            gd.sea_alt = 66.66;
-            gd.geo_alt = 55.55;
-            gd.course = 44.44;
-            gd.temp = 33.33;
-            gd.cpu_temp = 22.22;
-            gd.gpu_temp = 11.11;
-            printfd("GPS and Temperature data successfully retrieved from the database\n");
+            printfd("[BUFFERING        ] GPS and Temperature data successfully retrieved from the database\n");
         }
         memcpy(&buffer2[BUFFER_SIZE - sizeof(gd)], &gd, sizeof(gd));
 

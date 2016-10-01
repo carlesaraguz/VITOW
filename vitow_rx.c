@@ -66,7 +66,6 @@ void* rx(void* parameter)
     unsigned char * pu8Payload = u8aReceiveBuffer;
     unsigned char * pu8Symbol = u8aSymbol;
     GPS_data        gd;
-    unsigned char * gps_data_ptr;
 
     /*  Initiallization of `ses` was wrong:
      *      *ses = previousId;
@@ -406,11 +405,7 @@ void* rx(void* parameter)
                 /* This chunk already includes GPS and beacon data: */
                 printfd("[RX dump          ] Dumping GPS and Temperature data\n");
                 memcpy(&gd, src_symbols_tab[esi] + bytes_to_write, sizeof(gd));
-                char * ptr = (char *)&gd;
-                int i;
-                for(i = 0; i < sizeof(gd); i++) {
-                    printf("Byte %d -> %.2x\n", i, ptr[i]);
-                }
+                dbman_save_gps_data(&gd);
                 break;
             } else {
                 writtenBytes += bytes_to_write;
@@ -419,12 +414,6 @@ void* rx(void* parameter)
                 }
             }
         }
-
-        printf("GPS data fetched:\n gd.time_local = %s,\n gd.time_gps = %s,\n gd.lat = %lf,\n "
-                "gd.lng = %lf,\n gd.v_kph = %lf,\n gd.sea_alt = %lf,\n gd.geo_alt = %lf,\n "
-                "gd.course = %lf,\n gd.temp = %lf,\n gd.cpu_temp = %lf,\n gd.gpu_temp = %lf\n ",
-                gd.time_local, gd.time_gps, gd.lat, gd.lng, gd.v_kph, gd.sea_alt, gd.geo_alt,
-                gd.course, gd.temp, gd.cpu_temp, gd.gpu_temp);
 
         fclose(write_ptr);
         previousId = id;
