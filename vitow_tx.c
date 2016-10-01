@@ -443,11 +443,10 @@ void* bufferingThread(void* args)
             gd.gpu_temp = 11.11;
             printfd("GPS and Temperature data successfully retrieved from the database\n");
         }
-        memcpy(&buffer2[(BUFFER_SIZE - sizeof(gd))], &gd, sizeof(gd));
-        char * ptr = (char *)&gd;
+        memcpy(&buffer2[BUFFER_SIZE - sizeof(gd)], &gd, sizeof(gd));
         int i;
-        for(i = 0; i < sizeof(gd); i++) {
-            printf("Byte %d -> %.2x\n", i, ptr[i]);
+        for(i = BUFFER_SIZE - sizeof(gd); i < BUFFER_SIZE; i++) {
+            printf("Byte %d -> %.2x\n", i, buffer2[i]);
         }
 
         pthread_join(tx_thread_1, &retval);     /* Wait until thread 1 finishes. */
