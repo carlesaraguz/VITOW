@@ -370,7 +370,7 @@ void* bufferingThread(void* args)
                 return (void *)-2;
             } else if((int)(intptr_t)retval != 0) {
                 printfe("[BUFFERING        ] Errors found in TX thread (2). Restarting all threads.\n");
-                send_beacon_msg(VITOW, "Unexpected error found in VITOW. Will reset all threads now.")
+                send_beacon_msg(VITOW, "Unexpected error found in VITOW. Will reset all threads now.");
                 return (void *)-1;
             }
         } else {
@@ -391,7 +391,7 @@ void* bufferingThread(void* args)
             return (void *)-2;
         } else if((int)(intptr_t)retval != 0) {
             printfe("[BUFFERING        ] Errors found in TX thread (2). Restarting all threads.\n");
-            send_beacon_msg(VITOW, "Unexpected error found in VITOW. Will reset all threads now.")
+            send_beacon_msg(VITOW, "Unexpected error found in VITOW. Will reset all threads now.");
             return (void *)-1;
         }
         buffer_id = 2;
