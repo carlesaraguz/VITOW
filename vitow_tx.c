@@ -355,12 +355,32 @@ void* bufferingThread(void* args)
     pthread_t tx_thread_2;
     bool started = false;
     void *retval;
+    GPS_data gd;
 
     int i;
     while(1) {
-        for(i = 0; i < BUFFER_SIZE; ++i) {
+        for(i = 0; i < (BUFFER_SIZE - sizeof(gd)); ++i) {
             buffer1[i] = getc(stdin);       /* Data is expected from stdin. */
         }
+        /* Fill the remaining space in the buffer with last GPS data: */
+        if(dbman_get_gps_data(&gd) != 0) {
+            /* Data could not be retrieved from Database: fill with error data. */
+            gd.time_local = time(NULL);
+            gd.time_gps = gd.time_local;
+            gd.lat = 0.0;
+            gd.lng = 0.0;
+            gd.v_kph = 0.0;
+            gd.sea_alt = 0.0;
+            gd.geo_alt = 0.0;
+            gd.course = 0.0;
+            gd.temp = 0.0;
+            gd.cpu_temp = 0.0;
+            gd.gpu_temp = 0.0;
+            printfe("GPS data could not be retrieved from the database. Using default values\n");
+        } else {
+            printfd("GPS and Temperature data successfully retrieved from the database\n");
+        }
+        memcpy(&buffer1[(BUFFER_SIZE - sizeof(gd))], &gd, sizeof(gd));
 
         if(started) {
             pthread_join(tx_thread_2, &retval);     /* Wait until thread 2 finishes. */
@@ -380,9 +400,39 @@ void* bufferingThread(void* args)
         buffer_id = 1;
         pthread_create(&tx_thread_1, 0, transmittingThread, &buffer_id); /* Thread 1 is launched. */
 
-        for (i = 0; i < BUFFER_SIZE; ++i) {
+        for(i = 0; i < (BUFFER_SIZE - sizeof(gd)); ++i) {
             buffer2[i] = getc(stdin);       /* Data is expected from stdin. */
         }
+        /* Fill the remaining space in the buffer with last GPS data: */
+        if(dbman_get_gps_data(&gd) != 0) {
+            /* Data could not be retrieved from Database: fill with error data. */
+            gd.time_local = time(NULL);
+            gd.time_gps = gd.time_local;
+            gd.lat = 0.0;
+            gd.lng = 0.0;
+            gd.v_kph = 0.0;
+            gd.sea_alt = 0.0;
+            gd.geo_alt = 0.0;
+            gd.course = 0.0;
+            gd.temp = 0.0;
+            gd.cpu_temp = 0.0;
+            gd.gpu_temp = 0.0;
+            printfe("GPS data could not be retrieved from the database. Using default values\n");
+        } else {
+            gd.time_local = 0;
+            gd.time_gps = 1;
+            gd.lat = 2.2;
+            gd.lng = 3.3;
+            gd.v_kph = 4.4;
+            gd.sea_alt = 5.5;
+            gd.geo_alt = 6.6;
+            gd.course = 7.7;
+            gd.temp = 8.8;
+            gd.cpu_temp = 9.9;
+            gd.gpu_temp = 11.11;
+            printfd("GPS and Temperature data successfully retrieved from the database\n");
+        }
+        memcpy(&buffer2[(BUFFER_SIZE - sizeof(gd))], &gd, sizeof(gd));
 
         pthread_join(tx_thread_1, &retval);     /* Wait until thread 1 finishes. */
         if((int)(intptr_t)retval == -25) {

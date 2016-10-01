@@ -65,6 +65,7 @@ void* rx(void* parameter)
     PENUMBRA_RADIOTAP_DATA prd;
     unsigned char * pu8Payload = u8aReceiveBuffer;
     unsigned char * pu8Symbol = u8aSymbol;
+    GPS_data        gd;
 
     /*  Initiallization of `ses` was wrong:
      *      *ses = previousId;
@@ -390,8 +391,13 @@ void* rx(void* parameter)
             goto end;
         }
         memcpy(&imagefilelen, src_symbols_tab[0], 4); /* Copies length value. */
-        printfd("[RX dump          ] Dumping buffer contents (%d Bytes = %d KiB = %.2f MiB)\n",
-            imagefilelen, (imagefilelen / 1024), (imagefilelen / 1048576.0));
+        printfd("[RX dump          ] Dumping buffer contents (%d Bytes - %ld = %d KiB = %.2f MiB)\n",
+            imagefilelen, sizeof(gd), ((imagefilelen - sizeof(gd)) / 1024),
+            ((imagefilelen - sizeof(gd)) / 1048576.0));
+
+        /* Modify `imagefilelen` to take into account the GPS/Temp data appended at the end: */
+        imagefilelen -= sizeof(gd);
+
         /* The first write is special, so let's take it into account */
         fwrite(src_symbols_tab[0] + 4, 1, SYMBOL_SIZE - 4, write_ptr);
         writtenBytes = SYMBOL_SIZE - 4;
@@ -403,6 +409,14 @@ void* rx(void* parameter)
                bytes_to_write = imagefilelen - writtenBytes;
             }
         }
+
+        /* Recover GPS data from last symbol: */
+        memcpy(&gd, src_symbols_tab + imagefilelen, sizeof(gd));
+        printf("GPS data fetched:\n gd.time_local = %ld,\n gd.time_gps = %ld,\n gd.lat = %lf,\n "
+                "gd.lng = %lf,\n gd.v_kph = %lf,\n gd.sea_alt = %lf,\n gd.geo_alt = %lf,\n "
+                "gd.course = %lf,\n gd.temp = %lf,\n gd.cpu_temp = %lf,\n gd.gpu_temp = %lf\n ",
+                gd.time_local, gd.time_gps, gd.lat, gd.lng, gd.v_kph, gd.sea_alt, gd.geo_alt,
+                gd.course, gd.temp, gd.cpu_temp, gd.gpu_temp);
 
         fclose(write_ptr);
         previousId = id;
