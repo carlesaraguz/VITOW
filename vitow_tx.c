@@ -176,15 +176,6 @@ void* transmittingThread(void* args)
         // memset(enc_symbols_tab[esi], (char)(esi + 1), SYMBOL_SIZE);
         memcpy(enc_symbols_tab[esi], imagebuffer + (esi * SYMBOL_SIZE_32), SYMBOL_SIZE);
     }
-
-    int i;
-    unsigned char * j;
-    for(i = 0; i < SYMBOL_SIZE; i++) {
-        *j = enc_symbols_tab[k-1];
-        printf("Byte %d -> %.2x\n", i, j[i]);
-    }
-
-
     printfd("[TX (%05d)       ] [%.2f ms] Symbols dumped from Buffer #%d to encoding table\n", id,
         time_step_delta(&time_value), *buffer_id);
 
