@@ -30,12 +30,10 @@ void* rx(void* parameter)
                                                  * buffer start 4 bytes (i.e., sizeof(FPI))
                                                  * before.                                        */
     void **         src_symbols_tab = NULL; /* Source symbol buffers (no FPI here).               */
-    unsigned int    k;                      /* Number of source symbols in the block.             */
     unsigned int    id;
-    unsigned int    n;                      /* Number of encoding symbols (i.e. source + repair)
-                                             * in the block.                                      */
     unsigned int    esi;                    /* Encoding Symbol ID, used to identify each
                                              * encoding symbol                                    */
+    unsigned int    dbg_param, dbg_value;   /* Debug data transmitted within the packet headers.  */
     unsigned int    n_received = 0;         /* Num. of symbols (source or repair) received so far.*/
     bool            done = false;           /* Whether all source symbols have been
                                              * received/recovered (true) or not (false).          */
@@ -125,6 +123,15 @@ void* rx(void* parameter)
         if(retval == 0) { /* Timeout. */
             if(time_count == 0) {
                 time_count = time(NULL);
+                /* Check whether the GPS_data `gd` has enough relevant information to be saved: */
+                if(!strlen(gd.time_gps) && !strlen(gd.time_gps) && gd.lat != 0.0 && gd.lng != 0.0 && gd.sea_alt != 0.0) {
+                    if(dbman_save_gps_data(&gd) == 0) {
+                        printfd("[Debug data       ] GPS and Temperature debug data saved to DB\n");
+                    } else {
+                        printfe("[Debug data       ] An error occurred saving GPS and Temperature debug data to the DB\n");
+                    }
+                }
+                memset(&gd, 0, sizeof(gd));
             }
             printfw("[RX timeout % 3ld:%02d]                                                    \r",
                 (time(NULL) - time_count) / 60, (int)((time(NULL) - time_count) % 60));
@@ -171,7 +178,7 @@ void* rx(void* parameter)
         }
 
         /* Check all the fields (if there are more == 0) and take the ones we are interested in. */
-        while((n = ieee80211_radiotap_iterator_next(&rti)) == 0) {
+        while(ieee80211_radiotap_iterator_next(&rti) == 0) {
             switch (rti.this_arg_index) {
                 case IEEE80211_RADIOTAP_RATE:
                     prd.m_nRate = (*rti.this_arg);
@@ -211,25 +218,69 @@ void* rx(void* parameter)
         esi = ntohl(esi);
         pu8Payload += sizeof(unsigned int);
 
-        memcpy(&n, pu8Payload, sizeof(unsigned int));
-        n = ntohl(n);
+        memcpy(&dbg_param, pu8Payload, sizeof(unsigned int));
+        dbg_param = ntohl(dbg_param);
         pu8Payload += sizeof(unsigned int);
 
-        memcpy(&k, pu8Payload, sizeof(unsigned int));
-        k = ntohl(k);
+        memcpy(&dbg_value, pu8Payload, sizeof(unsigned int));
+        dbg_value = ntohl(dbg_value);
         pu8Payload += sizeof(unsigned int);
 
         memcpy(&id, pu8Payload, sizeof(unsigned int));
         id = ntohl(id);
         pu8Payload += sizeof(unsigned int);
 
+        /* Debug data will only be updated if this is either the first packet or if it does not
+         * correspond to a previous packet (the data of which might have been previously stored in
+         * the DB)
+         */
+        if(((id == previousId) && !firstId) || firstId) {
+            switch(dbg_param) {
+                case DBG_PARAM_TIME_LOCAL:
+                    sprintf(gd.time_local, "%u", dbg_value);
+                    break;
+                case DBG_PARAM_TIME_GPS:
+                    sprintf(gd.time_gps, "%u", dbg_value);
+                    break;
+                case DBG_PARAM_LAT:
+                    gd.lat = fixed_to_floating(dbg_value, 6);
+                    break;
+                case DBG_PARAM_LNG:
+                    gd.lng = fixed_to_floating(dbg_value, 6);
+                    break;
+                case DBG_PARAM_V_KPH:
+                    gd.v_kph = fixed_to_floating(dbg_value, 3);
+                    break;
+                case DBG_PARAM_SEA_ALT:
+                    gd.sea_alt = fixed_to_floating(dbg_value, 3);
+                    break;
+                case DBG_PARAM_GEO_ALT:
+                    gd.geo_alt = fixed_to_floating(dbg_value, 3);
+                    break;
+                case DBG_PARAM_COURSE:
+                    gd.course = fixed_to_floating(dbg_value, 3);
+                    break;
+                case DBG_PARAM_TEMP:
+                    gd.temp = fixed_to_floating(dbg_value, 1);
+                    break;
+                case DBG_PARAM_CPU_TEMP:
+                    gd.cpu_temp = fixed_to_floating(dbg_value, 1);
+                    break;
+                case DBG_PARAM_GPU_TEMP:
+                    gd.gpu_temp = fixed_to_floating(dbg_value, 1);
+                    break;
+            }
+        }
+
         if(firstId) {
             firstId = false;
             if(id == previousId) {
                 /* This buffer has already been decoded in the previous transmission. There's no
                  * need to do anything here. We'll sleep and reset this thread.
+                 * Debug data from this packet will be ignored (we received it and save it during
+                 * the previous iteration of the main loop.)
                  */
-                usleep(5);
+                usleep(3);
                 ret = 0;
                 goto end;
             } else {
@@ -239,9 +290,10 @@ void* rx(void* parameter)
                     printf("\n");
                 }
                 printfd("[RX (%05d) start ] (N = %d; K = %d) FCS:%s Len:%d, Buffer ID: %d, Pkt(min): %d\n",
-                    id, n, k, ((prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS) ? "yes," : "no, "), (bytes - 16),
-                    id, (int)(k * OVERHEAD));
+                    id, LDPC_N, LDPC_K, ((prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS) ? "yes," : "no, "), (bytes - 16),
+                    id, (int)(LDPC_K * OVERHEAD));
                 previousId = id;
+                memset(&gd, 0, sizeof(gd));
             }
         } else {
             /* If the video buffer changes in TX (different ID detected while receiving packets),
@@ -250,6 +302,16 @@ void* rx(void* parameter)
             if(id != previousId) {
                 printf("\n");
                 printfd("[Buffer changed   ] Buffer ID(old): %d -> Buffer ID(new): %d\n", previousId, id);
+
+                /* Check whether the GPS_data `gd` has enough relevant information to be saved: */
+                if(!strlen(gd.time_gps) && !strlen(gd.time_gps) && gd.lat != 0.0 && gd.lng != 0.0 && gd.sea_alt != 0.0) {
+                    if(dbman_save_gps_data(&gd) == 0) {
+                        printfd("[Debug data       ] GPS and Temperature debug data saved to DB\n");
+                    } else {
+                        printfe("[Debug data       ] An error occurred saving GPS and Temperature debug data to the DB\n");
+                    }
+                }
+                memset(&gd, 0, sizeof(gd));
                 ret = 0;
                 goto end;
             }
@@ -268,8 +330,8 @@ void* rx(void* parameter)
             params->prng_seed = 1804289383;//rand();
             params->N1        = N1parameter;
             /* Generic parameters: (of_parameters_t): */
-            params->nb_source_symbols = k;
-            params->nb_repair_symbols = n - k;
+            params->nb_source_symbols = LDPC_K;
+            params->nb_repair_symbols = LDPC_N - LDPC_K;
             params->encoding_symbol_length = SYMBOL_SIZE;
 
             /* Open and initialize the OpenFEC decoding session now that we know the various
@@ -289,7 +351,7 @@ void* rx(void* parameter)
             initialized = true;
         }
 
-        if(esi > n) {
+        if(esi > LDPC_N) {
             continue;
         }
 
@@ -297,8 +359,8 @@ void* rx(void* parameter)
             /* Allocate a table for the received encoding symbol buffers.
              * We'll update it progressively.
              */
-            if(((recvd_symbols_tab = (void **) calloc(n, sizeof(void *))) == NULL) ||
-               ((src_symbols_tab   = (void **) calloc(n, sizeof(void *))) == NULL)) {
+            if(((recvd_symbols_tab = (void **) calloc(LDPC_N, sizeof(void *))) == NULL) ||
+               ((src_symbols_tab   = (void **) calloc(LDPC_N, sizeof(void *))) == NULL)) {
                 printfe("Unable to allocate memory for the received symbols table\n");
                 ret = -1;
                 goto end;
@@ -316,8 +378,8 @@ void* rx(void* parameter)
 
         if(!(n_received % 11)) {
             printfd("[RX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\r", id,
-                (100.0 * (double)n_received / (double)(k * OVERHEAD)),
-                n_received, esi, ((esi < k) ? "source" : "repair"));
+                (100.0 * (double)n_received / (double)(LDPC_K * OVERHEAD)),
+                n_received, esi, ((esi < LDPC_K) ? "source" : "repair"));
         }
 
         if(of_decode_with_new_symbol(ses, (char*)pkt, esi) == OF_STATUS_ERROR) {
@@ -326,14 +388,14 @@ void* rx(void* parameter)
             goto end;
         }
 
-        if((double)n_received > (double)(k * OVERHEAD)) {
+        if((double)n_received > (double)(LDPC_K * OVERHEAD)) {
             printf("\n");
             printfd("[RX (%05d) %05.1f%%] Enough redundant information received (%d pkts.)\n", id,
-                (100.0 * (double)n_received / (double)(k * OVERHEAD)), n_received);
+                (100.0 * (double)n_received / (double)(LDPC_K * OVERHEAD)), n_received);
             break;
-        } else if (n_received > k && (of_is_decoding_complete(ses) == true)) {
+        } else if (n_received > LDPC_K && (of_is_decoding_complete(ses) == true)) {
             printfd("\n[RX (%05d) %05.1f%%] Decoding complete (%d pkts.)\n", id,
-                (100.0 * (double)n_received / (double)(k * OVERHEAD)), n_received);
+                (100.0 * (double)n_received / (double)(LDPC_K * OVERHEAD)), n_received);
             done = true;
             break;
         }
@@ -344,7 +406,7 @@ void* rx(void* parameter)
 
     gettimeofday(&time_value, NULL);
     time_count = 1000000 * time_value.tv_sec + time_value.tv_usec;
-    if(!done && (n_received >= k)) {
+    if(!done && (n_received >= LDPC_K)) {
         /* There are no more packets but we received at least k, and the use of
          * of_decode_with_new_symbol() didn't succedd to decode. Try with of_finish_decoding.
          * NB: this is useless with MDS codes (e.g. Reed-Solomon), but it is essential with LDPC-
@@ -383,7 +445,7 @@ void* rx(void* parameter)
         gettimeofday(&time_value, NULL);
         printfo("[RX complete      ] All source symbols rebuilt with %u packets. [%.2f ms] [Overhead: %.2f %%]\n",
             n_received, (1000000 * time_value.tv_sec + time_value.tv_usec - time_count) / 1000.0,
-            ((((float) n_received) / k) * 100 - 100));
+            ((((float) n_received) / LDPC_K) * 100 - 100));
 
         if((write_ptr = fopen(OUTPUT_FILENAME, "ab")) == NULL) {
             printfe("Could not open/create the output file (" OUTPUT_FILENAME ")");
@@ -392,26 +454,17 @@ void* rx(void* parameter)
         }
         memcpy(&imagefilelen, src_symbols_tab[0], 4); /* Copies length value. */
         printfd("[RX dump          ] Dumping buffer contents (%d Bytes = %d KiB = %.2f MiB)\n",
-            imagefilelen - (int)sizeof(gd), ((imagefilelen - (int)sizeof(gd)) / 1024),
-            ((imagefilelen - sizeof(gd)) / 1048576.0));
+            imagefilelen, (imagefilelen / 1024), (imagefilelen / 1048576.0));
 
         /* The first write is special, so let's take it into account */
         fwrite(src_symbols_tab[0] + 4, 1, SYMBOL_SIZE - 4, write_ptr);
         writtenBytes = SYMBOL_SIZE - 4;
 
-        for(esi = 1; esi < k; esi++) {
+        for(esi = 1; esi < LDPC_K; esi++) {
             fwrite(src_symbols_tab[esi], 1, bytes_to_write, write_ptr);
-            if(bytes_to_write != SYMBOL_SIZE) {
-                /* This chunk already includes GPS and beacon data: */
-                printfd("[RX dump          ] Dumping GPS and Temperature data\n");
-                memcpy(&gd, src_symbols_tab[esi] + bytes_to_write, sizeof(gd));
-                dbman_save_gps_data(&gd);
-                break;
-            } else {
-                writtenBytes += bytes_to_write;
-                if(writtenBytes + bytes_to_write >= imagefilelen - sizeof(gd)) {
-                   bytes_to_write = imagefilelen - writtenBytes - sizeof(gd);
-                }
+            writtenBytes += bytes_to_write;
+            if(writtenBytes + bytes_to_write >= imagefilelen) {
+               bytes_to_write = imagefilelen - writtenBytes;
             }
         }
 
@@ -437,11 +490,11 @@ end:
     }
 
     if(recvd_symbols_tab && src_symbols_tab) {
-        for(esi = 0; esi < n; esi++) {
+        for(esi = 0; esi < LDPC_N; esi++) {
             if (recvd_symbols_tab[esi]) {
                 free((char*)recvd_symbols_tab[esi]);
 
-            } else if (esi < k && src_symbols_tab[esi]) {
+            } else if (esi < LDPC_K && src_symbols_tab[esi]) {
                 ASSERT(recvd_symbols_tab[esi] == NULL);
                 free(src_symbols_tab[esi]);
             }

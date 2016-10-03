@@ -55,9 +55,6 @@ void* transmittingThread(void* args)
                                                  * session.                                       */
     void **         enc_symbols_tab = NULL;     /* Table containing pointers to the encoding (i.e.
                                                  * source + repair) symbols buffers.              */
-    unsigned int    k;                          /* Number of source symbols in the block.         */
-    unsigned int    n;                          /* Number of encoding symbols (i.e. source + repair)
-                                                 * in the block.                                  */
     unsigned int    esi;                        /* Encoding Symbol ID, used to identify each
                                                  * encoding symbol                                */
     unsigned int *  rand_order = NULL;          /* Table used to determine a random transmission
@@ -65,21 +62,22 @@ void* transmittingThread(void* args)
                                                  * for LDPC-Staircase optimal performance.        */
     int             so = -1;                    /* UDP socket for server=>client communications.  */
     unsigned int    ret = 0;                    /* Error code to be returned.                     */
-    double          rate = 0.5;
     unsigned int    *imagebuffer;
     pcap_t          *ppcap = NULL;
     int             r;
     char            szErrbuf[PCAP_ERRBUF_SIZE];
     unsigned char * ptr_buff;                       /* Pointer to the sending buffer.             */
     unsigned char   u8aSendBuffer[4096];
-    unsigned int    ESIsend, Nsend, Ksend, IDsend;  /* Transmission fields.                       */
+    unsigned int    ESIsend, dbg_param, dbg_value, IDsend;  /* Transmission fields.               */
     int *           buffer_id = args;
     struct timeval  time_value;
     double          time_elapsed;
     double          throughput_abs;
     double          throughput_net;
+    GPS_data gd;
 
     gettimeofday(&time_value, NULL); /* Initializes current time for delay counting purposes. */
+    dbman_get_gps_data(&gd);
 
     id++; /* Increments the buffer ID. */
 
@@ -93,14 +91,6 @@ void* transmittingThread(void* args)
     } else if(*buffer_id == 2) {
         memcpy(imagebuffer + 1, buffer2, BUFFER_SIZE);
     }
-
-    /* Number of symbols (rouding conversion).
-     * '+4' Because the first 4 Bytes will be the lenght of the transferred image
-     */
-    k = ((BUFFER_SIZE + 1) / SYMBOL_SIZE) + 1;
-
-    /* The total number of symbols will be the number of source symbols divided by the rate. */
-    n = (unsigned int)floor((double)k / (double)rate);
 
     if((params = (of_ldpc_parameters_t *)calloc(1, sizeof(*params))) == NULL) {
         printfe("Unable to allocate memory for LDPC parameters\n");
@@ -116,8 +106,8 @@ void* transmittingThread(void* args)
     /* Let's put the number of source and repair symbols here. Fill in the generic part of the
      * of_parameters_t structure.
      */
-    params->nb_source_symbols      = k;
-    params->nb_repair_symbols      = n - k;
+    params->nb_source_symbols      = LDPC_K;
+    params->nb_repair_symbols      = LDPC_N - LDPC_K;
     params->encoding_symbol_length = SYMBOL_SIZE;     /*  By default symbol_size = 1024.            */
 
     /* Open and initialize the OpenFEC session now. of_create_codec_instance creates the instance */
@@ -142,10 +132,10 @@ void* transmittingThread(void* args)
     /* Now the codec has been initialized and is ready to use.
      * Allocate and initialize our source symbols:
      *  In case of a file transmission, the opposite takes place: the file is read and partitioned
-     *  into a set of k source symbols. In fact, it's just equivalent since there is a set of k
+     *  into a set of LDPC_K source symbols. In fact, it's just equivalent since there is a set of LDPC_K
      *  source symbols that need to be sent reliably thanks to a FEC encoding.
      */
-    if((enc_symbols_tab = (void **)calloc(n, sizeof(*enc_symbols_tab))) == NULL) {
+    if((enc_symbols_tab = (void **)calloc(LDPC_N, sizeof(*enc_symbols_tab))) == NULL) {
         printfe("Unable to allocate memory for the source symbols\n");
         ret = -1;
         goto end;
@@ -158,10 +148,10 @@ void* transmittingThread(void* args)
      */
 
     printfd("[TX (%05d)       ] [%.2f ms] Codec instance ready and parameters set: (N = %d; K = %d)\n",
-        id, time_step_delta(&time_value), n, k);
+        id, time_step_delta(&time_value), LDPC_N, LDPC_K);
 
     /* For each one of the K symbols (source symbols): */
-    for(esi = 0; esi < k; esi++) {
+    for(esi = 0; esi < LDPC_K; esi++) {
         /* In each point of the table allocate the size of the source symbol. calloc sets the
          * requested memory to zero and returns pointer where it starts. If SYMBOL_SYZE = 1024 then
          * for each symbol we have 250 words of 32 bits. Therefore, 250 words of size 32 bits
@@ -180,9 +170,9 @@ void* transmittingThread(void* args)
         time_step_delta(&time_value), *buffer_id);
 
     /* Build the repair symbols: */
-    for(esi = k; esi < n; esi++) {
+    for(esi = LDPC_K; esi < LDPC_N; esi++) {
         if((enc_symbols_tab[esi] = (char *)calloc(SYMBOL_SIZE_32, sizeof(unsigned int))) == NULL) {
-            printfe("Unable to allocate memory for the k-th repair symbol\n");
+            printfe("Unable to allocate memory for the LDPC_K-th repair symbol\n");
             ret = -1;
             goto end;
         }
@@ -195,12 +185,12 @@ void* transmittingThread(void* args)
 
 
     /* Randomizing transmission order: */
-    if((rand_order = (unsigned int*)calloc(n, sizeof(*rand_order))) == NULL) {
+    if((rand_order = (unsigned int*)calloc(LDPC_N, sizeof(*rand_order))) == NULL) {
         printfe("Unable to allocate memory for the randomized array\n");
         ret = -1;
         goto end;
     }
-    randomize_array(&rand_order, n);
+    randomize_array(&rand_order, LDPC_N);
     printfd("[TX (%05d)       ] [%.2f ms] Repair symbols built; Randomization completed.\n", id, time_step_delta(&time_value));
 
     /* Source and Repair symbols have been created. Let's send all the data now! */
@@ -219,10 +209,10 @@ void* transmittingThread(void* args)
     pcap_setnonblock(ppcap, 0, szErrbuf);
 
     gettimeofday(&time_value, NULL);     /* Record the start time. */
-    printfd("[TX (%05d) start ] Sending %d symbols. Symbol size: %d bytes\n", id, n, SYMBOL_SIZE);
+    printfd("[TX (%05d) start ] Sending %d symbols. Symbol size: %d bytes\n", id, LDPC_N, SYMBOL_SIZE);
 
 
-    for (esi = 0; esi < n; esi++) {
+    for (esi = 0; esi < LDPC_N; esi++) {
         /* --- HEADERS: ------------------------------------------------------------------------- */
         ptr_buff = u8aSendBuffer;      /* ptr_buff will be the pointer to of the sending buffer.  */
         memcpy(u8aSendBuffer, u8aRadiotapHeader, sizeof(u8aRadiotapHeader)); /* Copy RadioTap hdr.*/
@@ -230,18 +220,63 @@ void* transmittingThread(void* args)
         memcpy(ptr_buff, u8aIeeeHeader, sizeof(u8aIeeeHeader));      /* Copy the IEEE header.     */
         ptr_buff += sizeof(u8aIeeeHeader);   /* Pointer is moved at the end of the IEEE header.   */
 
-        /* --- FIELDS (ESI, N, ID and K) -------------------------------------------------------- */
+        /* --- FIELDS (ESI, ID and debug data) -------------------------------------------------- */
         ESIsend = htonl(rand_order[esi]);   /* ESI  */
-        Nsend   = htonl(n);                 /* N    */
-        Ksend   = htonl(k);                 /* K    */
         IDsend  = htonl(id);                /* ID   */
+        /* `dbg_param` and `dbg_value` were previouly `Nsend` and `Ksend`, respectively. */
+        switch(esi % DBG_FIELD_COUNT) {
+            case DBG_PARAM_TIME_LOCAL:
+                dbg_param = htonl(DBG_PARAM_TIME_LOCAL);
+                dbg_value = htonl((unsigned int)strtol(gd.time_local, NULL, 10));
+                break;
+            case DBG_PARAM_TIME_GPS:
+                dbg_param = htonl(DBG_PARAM_TIME_GPS);
+                dbg_value = htonl((unsigned int)strtol(gd.time_gps, NULL, 10));
+                break;
+            case DBG_PARAM_LAT:
+                dbg_param = htonl(DBG_PARAM_LAT);
+                dbg_value = htonl(floating_to_fixed(gd.lat, 6));
+                break;
+            case DBG_PARAM_LNG:
+                dbg_param = htonl(DBG_PARAM_LNG);
+                dbg_value = htonl(floating_to_fixed(gd.lng, 6));
+                break;
+            case DBG_PARAM_V_KPH:
+                dbg_param = htonl(DBG_PARAM_V_KPH);
+                dbg_value = htonl(floating_to_fixed(gd.v_kph, 3));
+                break;
+            case DBG_PARAM_SEA_ALT:
+                dbg_param = htonl(DBG_PARAM_SEA_ALT);
+                dbg_value = htonl(floating_to_fixed(gd.sea_alt, 3));
+                break;
+            case DBG_PARAM_GEO_ALT:
+                dbg_param = htonl(DBG_PARAM_GEO_ALT);
+                dbg_value = htonl(floating_to_fixed(gd.geo_alt, 3));
+                break;
+            case DBG_PARAM_COURSE:
+                dbg_param = htonl(DBG_PARAM_COURSE);
+                dbg_value = htonl(floating_to_fixed(gd.course, 3));
+                break;
+            case DBG_PARAM_TEMP:
+                dbg_param = htonl(DBG_PARAM_TEMP);
+                dbg_value = htonl(floating_to_fixed(gd.temp, 1));
+                break;
+            case DBG_PARAM_CPU_TEMP:
+                dbg_param = htonl(DBG_PARAM_CPU_TEMP);
+                dbg_value = htonl(floating_to_fixed(gd.cpu_temp, 1));
+                break;
+            case DBG_PARAM_GPU_TEMP:
+                dbg_param = htonl(DBG_PARAM_GPU_TEMP);
+                dbg_value = htonl(floating_to_fixed(gd.gpu_temp, 1));
+                break;
+        }
 
         memcpy(ptr_buff, &ESIsend, sizeof(ESIsend));
         ptr_buff += sizeof(ESIsend);
-        memcpy(ptr_buff, &Nsend, sizeof(Nsend));
-        ptr_buff += sizeof(Nsend);
-        memcpy(ptr_buff, &Ksend, sizeof(Ksend));
-        ptr_buff += sizeof(Ksend);
+        memcpy(ptr_buff, &dbg_param, sizeof(dbg_param));
+        ptr_buff += sizeof(dbg_param);
+        memcpy(ptr_buff, &dbg_value, sizeof(dbg_value));
+        ptr_buff += sizeof(dbg_value);
         memcpy(ptr_buff, &IDsend, sizeof(IDsend));
         ptr_buff += sizeof(IDsend);
 
@@ -256,16 +291,16 @@ void* transmittingThread(void* args)
             ret = -1;
             goto end;
         } else if(esi % 11 == 0) {
-            printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\r", id, (100.0 * (double)esi / (double)n),
-                esi, ntohl(ESIsend), ((ntohl(ESIsend) < k) ? "source" : "repair"));
+            printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\r", id, (100.0 * (double)esi / (double)LDPC_N),
+                esi, ntohl(ESIsend), ((ntohl(ESIsend) < LDPC_K) ? "source" : "repair"));
         }
     }
-    printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\n", id, (100.0 * (double)esi / (double)n),
-        esi, ntohl(ESIsend), ((ntohl(ESIsend) < k) ? "source" : "repair"));
+    printfd("[TX (%05d) %05.1f%%] Pkt: %05u; ESI:%04u; %s\n", id, (100.0 * (double)esi / (double)LDPC_N),
+        esi, ntohl(ESIsend), ((ntohl(ESIsend) < LDPC_K) ? "source" : "repair"));
 
     time_elapsed = time_step_delta(&time_value) / 1000.0; /* Time elapsed in seconds. */
-    throughput_abs = ((sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE) * n * 8.0) / time_elapsed;
-    throughput_net = (SYMBOL_SIZE * n * 8.0) / time_elapsed;
+    throughput_abs = ((sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE) * LDPC_N * 8.0) / time_elapsed;
+    throughput_net = (SYMBOL_SIZE * LDPC_N * 8.0) / time_elapsed;
 
     printfo("[TX (%05d) done  ] [%.2f ms] Transmission completed. Throughput = [%.2f | %.2f] Mbps\n", id,
         time_elapsed, throughput_abs / 1000000.0, throughput_net / 1000000.0);
@@ -286,7 +321,7 @@ end:
         free(rand_order);
     }
     if(enc_symbols_tab) {
-        for(esi = 0; esi < n; esi++) {
+        for(esi = 0; esi < LDPC_N; esi++) {
             if (enc_symbols_tab[esi]) {
                 free(enc_symbols_tab[esi]);
             }
@@ -355,32 +390,17 @@ void* bufferingThread(void* args)
     pthread_t tx_thread_2;
     bool started = false;
     void *retval;
-    GPS_data gd;
+    struct timeval time_value;
+    float buffering_time;
+
 
     int i;
     while(1) {
-        for(i = 0; i < (BUFFER_SIZE - sizeof(gd)); ++i) {
+        gettimeofday(&time_value, NULL); /* Records start time. */
+        for(i = 0; i < BUFFER_SIZE; ++i) {
             buffer1[i] = getc(stdin);       /* Data is expected from stdin. */
         }
-        /* Fill the remaining space in the buffer with last GPS data: */
-        if(dbman_get_gps_data(&gd) != 0) {
-            /* Data could not be retrieved from Database: fill with error data. */
-            sprintf(gd.time_local, "%11ld", time(NULL));
-            sprintf(gd.time_gps,   "%11ld", time(NULL) + 1);
-            gd.lat = 0.0;
-            gd.lng = 0.0;
-            gd.v_kph = 0.0;
-            gd.sea_alt = 0.0;
-            gd.geo_alt = 0.0;
-            gd.course = 0.0;
-            gd.temp = 0.0;
-            gd.cpu_temp = 0.0;
-            gd.gpu_temp = 0.0;
-            printfe("[BUFFERING        ] GPS data could not be retrieved from the database. Using default values\n");
-        } else {
-            printfd("[BUFFERING        ] GPS and Temperature data successfully retrieved from the database\n");
-        }
-        memcpy(&buffer1[BUFFER_SIZE - sizeof(gd)], &gd, sizeof(gd));
+        buffering_time = time_step_delta(&time_value);
 
         if(started) {
             pthread_join(tx_thread_2, &retval);     /* Wait until thread 2 finishes. */
@@ -396,32 +416,15 @@ void* bufferingThread(void* args)
         } else {
             started = true;
         }
-        printfd("[BUFFERING        ] Buffer 1 full and ready to be sent\n");
+        printfd("[BUFFERING        ] Buffer 1 full and ready to be sent (%.2f ms)\n", buffering_time);
         buffer_id = 1;
         pthread_create(&tx_thread_1, 0, transmittingThread, &buffer_id); /* Thread 1 is launched. */
 
-        for(i = 0; i < (BUFFER_SIZE - sizeof(gd)); ++i) {
+        gettimeofday(&time_value, NULL); /* Records start time. */
+        for(i = 0; i < BUFFER_SIZE; ++i) {
             buffer2[i] = getc(stdin);       /* Data is expected from stdin. */
         }
-        /* Fill the remaining space in the buffer with last GPS data: */
-        if(dbman_get_gps_data(&gd) != 0) {
-            /* Data could not be retrieved from Database: fill with error data. */
-            sprintf(gd.time_local, "%11ld", time(NULL));
-            sprintf(gd.time_gps,   "%11ld", time(NULL) + 1);
-            gd.lat = 0.0;
-            gd.lng = 0.0;
-            gd.v_kph = 0.0;
-            gd.sea_alt = 0.0;
-            gd.geo_alt = 0.0;
-            gd.course = 0.0;
-            gd.temp = 0.0;
-            gd.cpu_temp = 0.0;
-            gd.gpu_temp = 0.0;
-            printfe("[BUFFERING        ] GPS data could not be retrieved from the database. Using default values\n");
-        } else {
-            printfd("[BUFFERING        ] GPS and Temperature data successfully retrieved from the database\n");
-        }
-        memcpy(&buffer2[BUFFER_SIZE - sizeof(gd)], &gd, sizeof(gd));
+        buffering_time = time_step_delta(&time_value);
 
         pthread_join(tx_thread_1, &retval);     /* Wait until thread 1 finishes. */
         if((int)(intptr_t)retval == -25) {
@@ -434,7 +437,7 @@ void* bufferingThread(void* args)
             return (void *)-1;
         }
         buffer_id = 2;
-        printfd("[BUFFERING        ] Buffer 2 full and ready to be sent\n");
+        printfd("[BUFFERING        ] Buffer 2 full and ready to be sent (%.2f ms)\n", buffering_time);
         pthread_create(&tx_thread_2, 0, transmittingThread, &buffer_id); /* Thread 2 is launched. */
     }
     printfe("Error: buffering thread exit\n");

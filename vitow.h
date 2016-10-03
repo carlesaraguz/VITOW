@@ -46,6 +46,23 @@
 #define OVERHEAD        1.05                /* Protocol overhead.                                 */
 #define OUTPUT_FILENAME "vitow_output"      /* Filename at RX with the received data.             */
 
+#define LDPC_RATE   2
+#define LDPC_K      (((BUFFER_SIZE + 1) / SYMBOL_SIZE) + 1)
+#define LDPC_N      (LDPC_K * LDPC_RATE)
+
+#define DBG_FIELD_COUNT         11
+#define DBG_PARAM_TIME_LOCAL    0
+#define DBG_PARAM_TIME_GPS      1
+#define DBG_PARAM_LAT           2
+#define DBG_PARAM_LNG           3
+#define DBG_PARAM_V_KPH         4
+#define DBG_PARAM_SEA_ALT       5
+#define DBG_PARAM_GEO_ALT       6
+#define DBG_PARAM_COURSE        7
+#define DBG_PARAM_TEMP          8
+#define DBG_PARAM_CPU_TEMP      9
+#define DBG_PARAM_GPU_TEMP      10
+
 #define DBG_REDB    "\x1b[31;1m"
 #define DBG_REDD    "\x1b[31m"
 #define DBG_GREENB  "\x1b[32;1m"
@@ -66,6 +83,9 @@ extern char wlan[100];                      /* The WiFi interface name. Filled w
 #else
     #define	le16_to_cpu(x) ((((x) & 0xff) << 8) | (((x) & 0xff00) >> 8))
 #endif
+
+#define floating_to_fixed(d, e)     ((unsigned int)(d * pow(10.0, e)))
+#define fixed_to_floating(i, e)     ((double)i / pow(10.0, e))
 
 #ifdef VITOW_DEBUG
     #ifdef VITOW_RX_END
@@ -120,6 +140,5 @@ void randomize_array(unsigned int **array, unsigned int arrayLen);
 void* bufferingThread(void* args);
 void* transmittingThread(void* args);
 const char * curr_time_format(void);
-
 
 #endif
