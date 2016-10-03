@@ -124,14 +124,14 @@ void* rx(void* parameter)
             if(time_count == 0) {
                 time_count = time(NULL);
                 /* Check whether the GPS_data `gd` has enough relevant information to be saved: */
-                if(!strlen(gd.time_gps) && !strlen(gd.time_gps) && gd.lat != 0.0 && gd.lng != 0.0 && gd.sea_alt != 0.0) {
+                if(strlen(gd.time_gps) != 0 && gd.lat != 0.0 && gd.lng != 0.0 && gd.sea_alt != 0.0) {
                     if(dbman_save_gps_data(&gd) == 0) {
                         printfd("[Debug data       ] GPS and Temperature debug data saved to DB\n");
                     } else {
                         printfe("[Debug data       ] An error occurred saving GPS and Temperature debug data to the DB\n");
                     }
                 }
-                memset(&gd, 0, sizeof(gd));
+                // memset(&gd, 0, sizeof(gd));
             }
             printfw("[RX timeout % 3ld:%02d]                                                    \r",
                 (time(NULL) - time_count) / 60, (int)((time(NULL) - time_count) % 60));
@@ -293,7 +293,7 @@ void* rx(void* parameter)
                     id, LDPC_N, LDPC_K, ((prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS) ? "yes," : "no, "), (bytes - 16),
                     id, (int)(LDPC_K * OVERHEAD));
                 previousId = id;
-                memset(&gd, 0, sizeof(gd));
+                // memset(&gd, 0, sizeof(gd));
             }
         } else {
             /* If the video buffer changes in TX (different ID detected while receiving packets),
@@ -304,14 +304,14 @@ void* rx(void* parameter)
                 printfd("[Buffer changed   ] Buffer ID(old): %d -> Buffer ID(new): %d\n", previousId, id);
 
                 /* Check whether the GPS_data `gd` has enough relevant information to be saved: */
-                if(!strlen(gd.time_gps) && !strlen(gd.time_gps) && gd.lat != 0.0 && gd.lng != 0.0 && gd.sea_alt != 0.0) {
+                if(strlen(gd.time_gps) != 0 && gd.lat != 0.0 && gd.lng != 0.0 && gd.sea_alt != 0.0) {
                     if(dbman_save_gps_data(&gd) == 0) {
                         printfd("[Debug data       ] GPS and Temperature debug data saved to DB\n");
                     } else {
                         printfe("[Debug data       ] An error occurred saving GPS and Temperature debug data to the DB\n");
                     }
                 }
-                memset(&gd, 0, sizeof(gd));
+                // memset(&gd, 0, sizeof(gd));
                 ret = 0;
                 goto end;
             }
