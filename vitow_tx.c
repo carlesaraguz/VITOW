@@ -18,8 +18,8 @@
 /*** GLOBAL VARIABLES *****************************************************************************/
 char            wlan[100];                    /* The WiFi interface name. Filled with argv.       */
 static  int     id              = 0;
-static  char    buffer1[BUFFER_SIZE + 1];
-static  char    buffer2[BUFFER_SIZE + 1];
+static  char    buffer1[BUFFER_SIZE];
+static  char    buffer2[BUFFER_SIZE];
 
 static const unsigned char u8aRadiotapHeader[] = { /* Template: RadioTap header to send packets out*/
     0x00, 0x00,                         /* <-- radiotap version.                                  */
@@ -224,7 +224,7 @@ void* transmittingThread(void* args)
         ESIsend = htonl(rand_order[esi]);   /* ESI  */
         IDsend  = htonl(id);                /* ID   */
         /* `dbg_param` and `dbg_value` were previouly `Nsend` and `Ksend`, respectively. */
-        switch(esi % DBG_FIELD_COUNT) {
+        switch(esi % BUFFER_SIZE) {
             case DBG_PARAM_TIME_LOCAL:
                 dbg_param = htonl(DBG_PARAM_TIME_LOCAL);
                 dbg_value = htonl((unsigned int)strtol(gd.time_local, NULL, 10));
@@ -397,7 +397,7 @@ void* bufferingThread(void* args)
     int i;
     while(1) {
         gettimeofday(&time_value, NULL); /* Records start time. */
-        for(i = 0; i < BUFFER_SIZE; ++i) {
+        for(i = 0; i < BUFFER_SIZE; i++) {
             buffer1[i] = getc(stdin);       /* Data is expected from stdin. */
         }
         buffering_time = time_step_delta(&time_value);
@@ -421,7 +421,7 @@ void* bufferingThread(void* args)
         pthread_create(&tx_thread_1, 0, transmittingThread, &buffer_id); /* Thread 1 is launched. */
 
         gettimeofday(&time_value, NULL); /* Records start time. */
-        for(i = 0; i < BUFFER_SIZE; ++i) {
+        for(i = 0; i < BUFFER_SIZE; i++) {
             buffer2[i] = getc(stdin);       /* Data is expected from stdin. */
         }
         buffering_time = time_step_delta(&time_value);
