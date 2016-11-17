@@ -3,7 +3,7 @@ OBJDIR := obj
 ROBJS  := $(addprefix $(OBJDIR)/,vitow_rx.o radiotap.o vitow_dbg.o)
 TOBJS  := $(addprefix $(OBJDIR)/,vitow_tx.o vitow_dbg.o)
 
-CFLAGS  = -I../openfec_v1.4.2/src/lib_common -I../libraries -Wall -DVITOW_DEBUG
+CFLAGS  = -I../openfec_v1.4.2/src/lib_common -I../libraries -I../module_gps_temp/include -Wall -DVITOW_DEBUG
 LDFLAGS = -lopenfec -lm -lpcap -lpthread -ldbman -L../libraries
 
 all: vitow_rx vitow_tx

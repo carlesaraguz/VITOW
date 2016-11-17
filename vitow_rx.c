@@ -63,7 +63,7 @@ void* rx(void* parameter)
     PENUMBRA_RADIOTAP_DATA prd;
     unsigned char * pu8Payload = u8aReceiveBuffer;
     unsigned char * pu8Symbol = u8aSymbol;
-    HKData          khd;                            /* Housekeeping data. */
+    HKData          hkd;                            /* Housekeeping data. */
 
     /*  Initiallization of `ses` was wrong:
      *      *ses = previousId;
@@ -222,7 +222,7 @@ void* rx(void* parameter)
         pu8Payload += sizeof(unsigned int);
 
         // TODO JF escribe aquí el call a la función complementaria a dumpDbgData. ===========================================================
-
+        save_dbg_data(dbg_param, &dbg_value, &hkd);
 
         if(firstId) {
             firstId = false;
@@ -257,7 +257,7 @@ void* rx(void* parameter)
 
                 /* Check whether the KHData `hkd` has all the relevant information to be saved: */
                 if(check_dbg_data(&hkd)) {
-                    if(dbman_save_gps_data(&hkd) == 0) {
+                    if(dbman_save_hk_data(&hkd) == 0) {
                         printfd("[Debug data       ] GPS and Temperature debug data saved to DB\n");
                     } else {
                         printfe("[Debug data       ] An error occurred saving GPS and Temperature debug data to the DB\n");

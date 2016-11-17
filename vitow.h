@@ -84,7 +84,12 @@
 #define DBG_NOCOLOR "\x1b[0m"
 
 /*** GLOBAL CONSTANTS: ****************************************************************************/
-const of_codec_id_t codec_id = OF_CODEC_LDPC_STAIRCASE_STABLE;  /* Identifier of the codec to use.*/
+static const of_codec_id_t codec_id = OF_CODEC_LDPC_STAIRCASE_STABLE;  /* Identifier of the codec 
+                                                                                           to use.*/
+/*** Take care! this fails when having multiple .c files including                                 /
+     this file and compiled at same time. To prevent that, or the codec_id is defined at any .c and/
+     then declared as extern, or put it as static variable                                         /
+***************************************************************************************************/
 
 /*** GLOBAL VARIABLES: ****************************************************************************/
 extern char wlan[100];                      /* The WiFi interface name. Filled with argv.         */
@@ -149,5 +154,10 @@ void randomize_array(unsigned int **array, unsigned int arrayLen);
 void* bufferingThread(void* args);
 void* transmittingThread(void* args);
 const char * curr_time_format(void);
+
+/* functions from vitow_dbg: */
+bool check_dbg_data(HKData * hkd);
+void dump_dbg_data(int dbg_id, HKData * hkd, unsigned int * dbg_param, unsigned int * dbg_value);
+void save_dbg_data(unsigned int dbg_param, unsigned int * dbg_value, HKData * hkd);
 
 #endif

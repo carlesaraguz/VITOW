@@ -98,7 +98,7 @@ void dump_dbg_data(int dbg_id, HKData * hkd, unsigned int * dbg_param, unsigned 
             break;
         case DBG_PARAM_MOT_ACC_X:
             *dbg_param = htonl(DBG_PARAM_MOT_ACC_X);
-            memcpy(dbg_value, &hkd->gps.acc_x, sizeof(*dbg_value));
+            memcpy(dbg_value, &hkd->mot.acc_x, sizeof(*dbg_value));
             break;
         case DBG_PARAM_MOT_ACC_Y:
             *dbg_param = htonl(DBG_PARAM_MOT_ACC_Y);
@@ -110,7 +110,7 @@ void dump_dbg_data(int dbg_id, HKData * hkd, unsigned int * dbg_param, unsigned 
             break;
         case DBG_PARAM_MOT_GYRO_X:
             *dbg_param = htonl(DBG_PARAM_MOT_GYRO_X);
-            memcpy(dbg_value, &hkd->mot.gyrpo_x, sizeof(*dbg_value));
+            memcpy(dbg_value, &hkd->mot.gyro_x, sizeof(*dbg_value));
             break;
         case DBG_PARAM_MOT_GYRO_Y:
             *dbg_param = htonl(DBG_PARAM_MOT_GYRO_Y);
@@ -170,4 +170,85 @@ void dump_dbg_data(int dbg_id, HKData * hkd, unsigned int * dbg_param, unsigned 
             break;
     }
     *dbg_value = htonl(*dbg_value);
+}
+
+void save_dbg_data(unsigned int dbg_param, unsigned int * dbg_value, HKData * hkd)
+{
+    /* dbg_param indicates the ID of the parameter sent */
+   switch (dbg_param) {
+        case DBG_PARAM_GPS_TIME_LOCAL:
+            memcpy(&hkd->gps.time_local, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_GPS_TIME_GPS:
+            memcpy(&hkd->gps.time_gps, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_GPS_LAT:
+            memcpy(&hkd->gps.lat, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_GPS_LNG:
+            memcpy(&hkd->gps.lng, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_GPS_GSPEED:
+            memcpy(&hkd->gps.gspeed, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_GPS_SEA_ALT:
+            memcpy(&hkd->gps.sea_alt, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_GPS_GEO_ALT:
+            memcpy(&hkd->gps.geo_alt, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_MOT_ACC_X:
+            memcpy(&hkd->mot.acc_x, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_MOT_ACC_Y:
+            memcpy(&hkd->mot.acc_y, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_MOT_ACC_Z:
+            memcpy(&hkd->mot.acc_z, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_MOT_GYRO_X:
+            memcpy(&hkd->mot.gyro_x, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_MOT_GYRO_Y:
+            memcpy(&hkd->mot.gyro_y, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_MOT_GYRO_Z:
+            memcpy(&hkd->mot.gyro_z, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_MOT_MAG_X:
+            memcpy(&hkd->mot.mag_x, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_MOT_MAG_Y:
+            memcpy(&hkd->mot.mag_y, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_MOT_MAG_Z:
+            memcpy(&hkd->mot.mag_z, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_AMB_CPU_TEMP:
+            memcpy(&hkd->amb.cpu_temp, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_AMB_GPU_TEMP:
+            memcpy(&hkd->amb.gpu_temp, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_AMB_IN_TEMP:
+            memcpy(&hkd->amb.in_temp, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_AMB_IN_PRESSURE:
+            memcpy(&hkd->amb.in_pressure, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_AMB_IN_CALC_ALT:
+            memcpy(&hkd->amb.in_calc_alt, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_AMB_OUT_TEMP:
+            memcpy(&hkd->amb.out_temp, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_AMB_OUT_PRESSURE:
+            memcpy(&hkd->amb.out_pressure, dbg_value, sizeof(*dbg_value));
+            break;
+        case DBG_PARAM_AMB_OUT_CALC_ALT:
+            memcpy(&hkd->amb.out_calc_alt, dbg_value, sizeof(*dbg_value));
+            break;
+        default:
+            break;
+    }
 }

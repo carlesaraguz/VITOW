@@ -74,10 +74,10 @@ void* transmittingThread(void* args)
     double          time_elapsed;
     double          throughput_abs;
     double          throughput_net;
-    GPS_data gd;
+    HKData hkd;
 
     gettimeofday(&time_value, NULL); /* Initializes current time for delay counting purposes. */
-    dbman_get_gps_data(&gd);
+    dbman_get_hk_data(&hkd);
 
     id++; /* Increments the buffer ID. */
 
@@ -223,8 +223,8 @@ void* transmittingThread(void* args)
         /* --- FIELDS (ESI, ID and debug data) -------------------------------------------------- */
         ESIsend   = htonl(rand_order[esi]);   /* ESI  */
         IDsend    = htonl(id);                /* ID   */
-        dumpDbgData(esi % BUFFER_SIZE, &hkd, &dbg_param, &dbg_value); /* dbg_param and dbg_value. */
-
+        /* function redefinition? At vitow_dbg this function is called dump_dbg_data, not dumpDbgData */
+        dump_dbg_data(esi % BUFFER_SIZE, &hkd, &dbg_param, &dbg_value); /* dbg_param and dbg_value. */
 
         memcpy(ptr_buff, &ESIsend, sizeof(ESIsend));
         ptr_buff += sizeof(ESIsend);
