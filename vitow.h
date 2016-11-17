@@ -49,18 +49,31 @@
 #define LDPC_K          BUFFER_ELEMS
 #define LDPC_N          700
 
-#define DBG_FIELD_COUNT         11
-#define DBG_PARAM_TIME_LOCAL    0
-#define DBG_PARAM_TIME_GPS      1
-#define DBG_PARAM_LAT           2
-#define DBG_PARAM_LNG           3
-#define DBG_PARAM_V_KPH         4
-#define DBG_PARAM_SEA_ALT       5
-#define DBG_PARAM_GEO_ALT       6
-#define DBG_PARAM_COURSE        7
-#define DBG_PARAM_TEMP          8
-#define DBG_PARAM_CPU_TEMP      9
-#define DBG_PARAM_GPU_TEMP      10
+/* Debug symbols and constants (debug purposes only). */
+#define DBG_PARAM_GPS_TIME_LOCAL        0   /* Debug param ID: local SBC time.                    */
+#define DBG_PARAM_GPS_TIME_GPS          1   /* Debug param ID: GPS time.                          */
+#define DBG_PARAM_GPS_LAT               2   /* Debug param ID: GPS latitude.                      */
+#define DBG_PARAM_GPS_LNG               3   /* Debug param ID: GPS longitude.                     */
+#define DBG_PARAM_GPS_GSPEED            4   /* Debug param ID: GPS ground speed.                  */
+#define DBG_PARAM_GPS_SEA_ALT           5   /* Debug param ID: GPS sea altitude.                  */
+#define DBG_PARAM_GPS_GEO_ALT           6   /* Debug param ID: GPS geoid altitude.                */
+#define DBG_PARAM_MOT_ACC_X             7   /* Debug param ID: Accelerometer (X axis).            */
+#define DBG_PARAM_MOT_ACC_Y             8   /* Debug param ID: Accelerometer (Y axis).            */
+#define DBG_PARAM_MOT_ACC_Z             9   /* Debug param ID: Accelerometer (Z axis).            */
+#define DBG_PARAM_MOT_GYRO_X            10  /* Debug param ID: Gyroscope (X axis).                */
+#define DBG_PARAM_MOT_GYRO_Y            11  /* Debug param ID: Gyroscope (Y axis).                */
+#define DBG_PARAM_MOT_GYRO_Z            12  /* Debug param ID: Gyroscope (Z axis).                */
+#define DBG_PARAM_MOT_MAG_X             13  /* Debug param ID: Magnetometer (X axis).             */
+#define DBG_PARAM_MOT_MAG_Y             14  /* Debug param ID: Magnetometer (Y axis).             */
+#define DBG_PARAM_MOT_MAG_Z             15  /* Debug param ID: Magnetometer (Z axis).             */
+#define DBG_PARAM_AMB_CPU_TEMP          16  /* Debug param ID: CPU temperature.                   */
+#define DBG_PARAM_AMB_GPU_TEMP          17  /* Debug param ID: GPU temperature.                   */
+#define DBG_PARAM_AMB_IN_TEMP           18  /* Debug param ID: temperature inside.                */
+#define DBG_PARAM_AMB_IN_PRESSURE       19  /* Debug param ID: pressure inside.                   */
+#define DBG_PARAM_AMB_IN_CALC_ALT       20  /* Debug param ID: calculated altitude inside.        */
+#define DBG_PARAM_AMB_OUT_TEMP          21  /* Debug param ID: temperature outside.               */
+#define DBG_PARAM_AMB_OUT_PRESSURE      22  /* Debug param ID: pressure outside.                  */
+#define DBG_PARAM_AMB_OUT_CALC_ALT      23  /* Debug param ID: calculated altitude outside.       */
 
 #define DBG_REDB    "\x1b[31;1m"
 #define DBG_REDD    "\x1b[31m"
@@ -82,9 +95,6 @@ extern char wlan[100];                      /* The WiFi interface name. Filled w
 #else
     #define	le16_to_cpu(x) ((((x) & 0xff) << 8) | (((x) & 0xff00) >> 8))
 #endif
-
-#define floating_to_fixed(d, e)     ((unsigned int)(d * pow(10.0, e)))
-#define fixed_to_floating(i, e)     ((double)i / pow(10.0, e))
 
 #ifdef VITOW_DEBUG
     #ifdef VITOW_RX_END

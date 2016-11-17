@@ -221,68 +221,22 @@ void* transmittingThread(void* args)
         ptr_buff += sizeof(u8aIeeeHeader);   /* Pointer is moved at the end of the IEEE header.   */
 
         /* --- FIELDS (ESI, ID and debug data) -------------------------------------------------- */
-        ESIsend = htonl(rand_order[esi]);   /* ESI  */
-        IDsend  = htonl(id);                /* ID   */
-        /* `dbg_param` and `dbg_value` were previouly `Nsend` and `Ksend`, respectively. */
-        switch(esi % BUFFER_SIZE) {
-            case DBG_PARAM_TIME_LOCAL:
-                dbg_param = htonl(DBG_PARAM_TIME_LOCAL);
-                dbg_value = htonl((unsigned int)strtol(gd.time_local, NULL, 10));
-                break;
-            case DBG_PARAM_TIME_GPS:
-                dbg_param = htonl(DBG_PARAM_TIME_GPS);
-                dbg_value = htonl((unsigned int)strtol(gd.time_gps, NULL, 10));
-                break;
-            case DBG_PARAM_LAT:
-                dbg_param = htonl(DBG_PARAM_LAT);
-                dbg_value = htonl(floating_to_fixed(gd.lat, 6));
-                break;
-            case DBG_PARAM_LNG:
-                dbg_param = htonl(DBG_PARAM_LNG);
-                dbg_value = htonl(floating_to_fixed(gd.lng, 6));
-                break;
-            case DBG_PARAM_V_KPH:
-                dbg_param = htonl(DBG_PARAM_V_KPH);
-                dbg_value = htonl(floating_to_fixed(gd.v_kph, 3));
-                break;
-            case DBG_PARAM_SEA_ALT:
-                dbg_param = htonl(DBG_PARAM_SEA_ALT);
-                dbg_value = htonl(floating_to_fixed(gd.sea_alt, 3));
-                break;
-            case DBG_PARAM_GEO_ALT:
-                dbg_param = htonl(DBG_PARAM_GEO_ALT);
-                dbg_value = htonl(floating_to_fixed(gd.geo_alt, 3));
-                break;
-            case DBG_PARAM_COURSE:
-                dbg_param = htonl(DBG_PARAM_COURSE);
-                dbg_value = htonl(floating_to_fixed(gd.course, 3));
-                break;
-            case DBG_PARAM_TEMP:
-                dbg_param = htonl(DBG_PARAM_TEMP);
-                dbg_value = htonl(floating_to_fixed(gd.temp, 1));
-                break;
-            case DBG_PARAM_CPU_TEMP:
-                dbg_param = htonl(DBG_PARAM_CPU_TEMP);
-                dbg_value = htonl(floating_to_fixed(gd.cpu_temp, 1));
-                break;
-            case DBG_PARAM_GPU_TEMP:
-                dbg_param = htonl(DBG_PARAM_GPU_TEMP);
-                dbg_value = htonl(floating_to_fixed(gd.gpu_temp, 1));
-                break;
-        }
+        ESIsend   = htonl(rand_order[esi]);   /* ESI  */
+        IDsend    = htonl(id);                /* ID   */
+        dumpDbgData(esi % BUFFER_SIZE, &hkd, &dbg_param, &dbg_value); /* dbg_param and dbg_value. */
+
 
         memcpy(ptr_buff, &ESIsend, sizeof(ESIsend));
         ptr_buff += sizeof(ESIsend);
+        memcpy(ptr_buff, &IDsend, sizeof(IDsend));
+        ptr_buff += sizeof(IDsend);
         memcpy(ptr_buff, &dbg_param, sizeof(dbg_param));
         ptr_buff += sizeof(dbg_param);
         memcpy(ptr_buff, &dbg_value, sizeof(dbg_value));
         ptr_buff += sizeof(dbg_value);
-        memcpy(ptr_buff, &IDsend, sizeof(IDsend));
-        ptr_buff += sizeof(IDsend);
 
         /* --- Copy the rest of the packet: ----------------------------------------------------- */
         memcpy(ptr_buff, enc_symbols_tab[rand_order[esi]], SYMBOL_SIZE);
-        //inject object, pointer, size.
         r = pcap_inject(ppcap, u8aSendBuffer,
             sizeof(u8aRadiotapHeader) + sizeof(u8aIeeeHeader) + 16 + SYMBOL_SIZE);
 
@@ -304,7 +258,6 @@ void* transmittingThread(void* args)
 
     printfo("[TX (%05d) done  ] [%.2f ms] Transmission completed. Throughput = [%.2f | %.2f] Mbps\n", id,
         time_elapsed, throughput_abs / 1000000.0, throughput_net / 1000000.0);
-    // send_beacon_msg(VITOW, "Transmission completed. Throughput = [%.2f | %.2f] Mbps", throughput_abs / 1000000.0, throughput_net / 1000000.0);
 
 end:
     /* Cleanup everything: */
@@ -392,7 +345,6 @@ void* bufferingThread(void* args)
     void *retval;
     struct timeval time_value;
     float buffering_time;
-
 
     int i;
     while(1) {

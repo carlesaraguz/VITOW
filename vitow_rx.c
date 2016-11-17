@@ -63,7 +63,7 @@ void* rx(void* parameter)
     PENUMBRA_RADIOTAP_DATA prd;
     unsigned char * pu8Payload = u8aReceiveBuffer;
     unsigned char * pu8Symbol = u8aSymbol;
-    GPS_data        gd;
+    HKData          khd;                            /* Housekeeping data. */
 
     /*  Initiallization of `ses` was wrong:
      *      *ses = previousId;
@@ -123,15 +123,6 @@ void* rx(void* parameter)
         if(retval == 0) { /* Timeout. */
             if(time_count == 0) {
                 time_count = time(NULL);
-                /* Check whether the GPS_data `gd` has enough relevant information to be saved: */
-                if(strlen(gd.time_gps) != 0 && gd.lat != 0.0 && gd.lng != 0.0 && gd.sea_alt != 0.0) {
-                    if(dbman_save_gps_data(&gd) == 0) {
-                        printfd("[Debug data       ] GPS and Temperature debug data saved to DB\n");
-                    } else {
-                        printfe("[Debug data       ] An error occurred saving GPS and Temperature debug data to the DB\n");
-                    }
-                }
-                // memset(&gd, 0, sizeof(gd));
             }
             printfw("[RX timeout % 3ld:%02d]                                                    \r",
                 (time(NULL) - time_count) / 60, (int)((time(NULL) - time_count) % 60));
@@ -218,6 +209,10 @@ void* rx(void* parameter)
         esi = ntohl(esi);
         pu8Payload += sizeof(unsigned int);
 
+        memcpy(&id, pu8Payload, sizeof(unsigned int));
+        id = ntohl(id);
+        pu8Payload += sizeof(unsigned int);
+
         memcpy(&dbg_param, pu8Payload, sizeof(unsigned int));
         dbg_param = ntohl(dbg_param);
         pu8Payload += sizeof(unsigned int);
@@ -226,51 +221,8 @@ void* rx(void* parameter)
         dbg_value = ntohl(dbg_value);
         pu8Payload += sizeof(unsigned int);
 
-        memcpy(&id, pu8Payload, sizeof(unsigned int));
-        id = ntohl(id);
-        pu8Payload += sizeof(unsigned int);
+        // TODO JF escribe aquí el call a la función complementaria a dumpDbgData. ===========================================================
 
-        /* Debug data will only be updated if this is either the first packet or if it does not
-         * correspond to a previous packet (the data of which might have been previously stored in
-         * the DB)
-         */
-        if(((id == previousId) && !firstId) || firstId) {
-            switch(dbg_param) {
-                case DBG_PARAM_TIME_LOCAL:
-                    sprintf(gd.time_local, "%u", dbg_value);
-                    break;
-                case DBG_PARAM_TIME_GPS:
-                    sprintf(gd.time_gps, "%u", dbg_value);
-                    break;
-                case DBG_PARAM_LAT:
-                    gd.lat = fixed_to_floating(dbg_value, 6);
-                    break;
-                case DBG_PARAM_LNG:
-                    gd.lng = fixed_to_floating(dbg_value, 6);
-                    break;
-                case DBG_PARAM_V_KPH:
-                    gd.v_kph = fixed_to_floating(dbg_value, 3);
-                    break;
-                case DBG_PARAM_SEA_ALT:
-                    gd.sea_alt = fixed_to_floating(dbg_value, 3);
-                    break;
-                case DBG_PARAM_GEO_ALT:
-                    gd.geo_alt = fixed_to_floating(dbg_value, 3);
-                    break;
-                case DBG_PARAM_COURSE:
-                    gd.course = fixed_to_floating(dbg_value, 3);
-                    break;
-                case DBG_PARAM_TEMP:
-                    gd.temp = fixed_to_floating(dbg_value, 1);
-                    break;
-                case DBG_PARAM_CPU_TEMP:
-                    gd.cpu_temp = fixed_to_floating(dbg_value, 1);
-                    break;
-                case DBG_PARAM_GPU_TEMP:
-                    gd.gpu_temp = fixed_to_floating(dbg_value, 1);
-                    break;
-            }
-        }
 
         if(firstId) {
             firstId = false;
@@ -293,7 +245,7 @@ void* rx(void* parameter)
                     id, LDPC_N, LDPC_K, ((prd.m_nRadiotapFlags & IEEE80211_RADIOTAP_F_FCS) ? "yes," : "no, "), (bytes - 16),
                     id, (int)(LDPC_K * OVERHEAD));
                 previousId = id;
-                // memset(&gd, 0, sizeof(gd));
+                memset(&hkd, 0, sizeof(hkd));
             }
         } else {
             /* If the video buffer changes in TX (different ID detected while receiving packets),
@@ -303,17 +255,22 @@ void* rx(void* parameter)
                 printf("\n");
                 printfd("[Buffer changed   ] Buffer ID(old): %d -> Buffer ID(new): %d\n", previousId, id);
 
-                /* Check whether the GPS_data `gd` has enough relevant information to be saved: */
-                if(strlen(gd.time_gps) != 0 && gd.lat != 0.0 && gd.lng != 0.0 && gd.sea_alt != 0.0) {
-                    if(dbman_save_gps_data(&gd) == 0) {
+                /* Check whether the KHData `hkd` has all the relevant information to be saved: */
+                if(check_dbg_data(&hkd)) {
+                    if(dbman_save_gps_data(&hkd) == 0) {
                         printfd("[Debug data       ] GPS and Temperature debug data saved to DB\n");
                     } else {
                         printfe("[Debug data       ] An error occurred saving GPS and Temperature debug data to the DB\n");
                     }
                 }
-                // memset(&gd, 0, sizeof(gd));
+                memset(&hkd, 0, sizeof(hkd));
                 ret = 0;
                 goto end;
+            } else {
+                /* Save the debug data in memory (the actual DB insert is performed when there's a
+                 * frame ID transition):
+                 */
+
             }
         }
 
