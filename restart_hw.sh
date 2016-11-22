@@ -6,6 +6,7 @@ if [ $WHOAMI == "root" ]; then
         echo "Illegal number of parameters. Expected: ./restart_hw.sh <tx|rx>"
     else
         rmmod ath9k_htc
+	sleep 3
         modprobe ath9k_htc
         echo "Device module reset succesfully. Setting monitor mode..."
         sleep 3
