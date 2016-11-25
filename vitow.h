@@ -40,14 +40,14 @@
 /*** PARAMETERS ***********************************************************************************/
 #define VERBOSITY       2                   /* Verb. level: 2 = full traces with packet dumps.    */
 #define SYMBOL_SIZE     1084                /* Must be multiple of 4.                             */
-#define BUFFER_ELEMS    300                 /* Elements in the buffer.                            */
+#define BUFFER_ELEMS    1001                /* Elements in the buffer.                            */
 #define BUFFER_SIZE     (SYMBOL_SIZE * BUFFER_ELEMS)    /* Round-Robin buffers size.              */
 #define SYMBOL_SIZE_32  (SYMBOL_SIZE / 4)   /* Used when pointers to buffer are (int *).          */
 #define OVERHEAD        1.05                /* Protocol overhead.                                 */
 #define OUTPUT_FILENAME "vitow_output"      /* Filename at RX with the received data.             */
 
 #define LDPC_K          BUFFER_ELEMS
-#define LDPC_N          700
+#define LDPC_N          2002
 
 /* Debug symbols and constants (debug purposes only). */
 #define DBG_PARAM_GPS_TIME_LOCAL        0   /* Debug param ID: local SBC time.                    */
@@ -84,7 +84,7 @@
 #define DBG_NOCOLOR "\x1b[0m"
 
 /*** GLOBAL CONSTANTS: ****************************************************************************/
-static const of_codec_id_t codec_id = OF_CODEC_LDPC_STAIRCASE_STABLE;  /* Identifier of the codec 
+static const of_codec_id_t codec_id = OF_CODEC_LDPC_STAIRCASE_STABLE;  /* Identifier of the codec
                                                                                            to use.*/
 /*** Take care! this fails when having multiple .c files including                                 /
      this file and compiled at same time. To prevent that, or the codec_id is defined at any .c and/
