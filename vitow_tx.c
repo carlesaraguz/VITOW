@@ -40,6 +40,9 @@ static const unsigned char u8aIeeeHeader[] = { /* Penumbra IEEE80211 header     
                                         /* Address 4 left blank [6B]                              */
 };
 
+const of_codec_id_t codec_id = OF_CODEC_LDPC_STAIRCASE_STABLE;  /* Identifier of the codec to use.*/
+
+
 /*** STATIC GLOBAL FUNCTION HEADERS ***************************************************************/
 static double time_step_delta(struct timeval * t);
 

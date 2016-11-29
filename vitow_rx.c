@@ -19,6 +19,9 @@ char                wlan[100];              /* The WiFi interface name. Filled w
 static unsigned int previousId;
 static bool         firstId = true;
 
+const of_codec_id_t codec_id = OF_CODEC_LDPC_STAIRCASE_STABLE;  /* Identifier of the codec to use.*/
+
+
 /***********************************************************************************************//**
  * Receiveing thread. Launched by the main thread.
  **************************************************************************************************/
